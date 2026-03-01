@@ -4,37 +4,11 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Socket } from 'socket.io-client'
 import { UserInfo, PeerState, ChatMessage } from '@/types'
 
-// Build ICE server list with STUN + TURN.
-// TURN credentials can be injected via environment variables (recommended for production).
-// Falls back to OpenRelay public TURN servers for zero-config testing.
-const TURN_URL = process.env.NEXT_PUBLIC_TURN_URL
-const TURN_USERNAME = process.env.NEXT_PUBLIC_TURN_USERNAME
-const TURN_CREDENTIAL = process.env.NEXT_PUBLIC_TURN_CREDENTIAL
-
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
-    // STUN — discovers public IP
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-
-    // TURN — relays media when direct P2P fails (essential for cross-network calls)
-    ...(TURN_URL && TURN_USERNAME && TURN_CREDENTIAL
-      ? [
-          // Custom TURN from env vars (Metered.ca, Twilio, etc.)
-          { urls: TURN_URL, username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-          { urls: TURN_URL.replace(':80', ':443'), username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-          { urls: TURN_URL.replace('turn:', 'turns:').replace(':80', ':443'), username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-        ]
-      : [
-          // OpenRelay free public TURN — good for testing, no sign-up needed
-          { urls: 'turn:openrelay.metered.ca:80',   username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:openrelay.metered.ca:443',  username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:openrelay.metered.ca:80?transport=tcp',  username: 'openrelayproject', credential: 'openrelayproject' },
-        ]),
-  ],
-  iceCandidatePoolSize: 10,
-}
+// Default ICE config used until the server-side credentials are fetched
+const STUN_ONLY: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+]
 
 interface UseWebRTCProps {
   roomId: string
@@ -79,11 +53,17 @@ export function useWebRTC({
   const originalCameraTrackRef = useRef<MediaStreamTrack | null>(
     initialStream?.getVideoTracks()[0] ?? null
   )
+  // Stores ICE servers fetched from our server-side API route
+  const iceServersRef = useRef<RTCIceServer[]>(STUN_ONLY)
 
   // ── Peer connection factory ──────────────────────────────────────────────
   const createPeerConnection = useCallback(
     (socketId: string): RTCPeerConnection => {
-      const pc = new RTCPeerConnection(ICE_SERVERS)
+      // Uses whatever ICE servers are currently in the ref (populated before joining)
+      const pc = new RTCPeerConnection({
+        iceServers: iceServersRef.current,
+        iceCandidatePoolSize: 10,
+      })
 
       // Add local tracks to the connection
       if (localStreamRef.current) {
@@ -149,152 +129,164 @@ export function useWebRTC({
   useEffect(() => {
     if (!socket || !roomId) return
 
-    // Set up all listeners BEFORE emitting join-room
-    // so we don't miss events that arrive immediately after joining.
+    let cancelled = false
 
-    // List of users already in the room when WE join
-    socket.on('room-users', async (existingUsers: UserInfo[]) => {
-      for (const user of existingUsers) {
-        const pc = createPeerConnection(user.socketId)
-        addPeer(user)
-        try {
-          const offer = await pc.createOffer()
-          await pc.setLocalDescription(offer)
-          socket.emit('offer', { target: user.socketId, sdp: pc.localDescription })
-        } catch (err) {
-          console.error('[WebRTC] Error creating offer:', err)
+    const initialize = async () => {
+      // 1. Fetch TURN credentials from our server-side API route FIRST.
+      //    The secret key is never exposed — it lives only in the server environment.
+      try {
+        const res = await fetch('/api/turn-credentials')
+        const data = await res.json()
+        if (!cancelled && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+          iceServersRef.current = data.iceServers
+          console.log(`[TURN] Loaded ${data.iceServers.length} ICE servers`)
         }
+      } catch (err) {
+        console.warn('[TURN] Could not fetch credentials, falling back to STUN only:', err)
       }
-    })
 
-    // A NEW user joined (we are an existing participant)
-    socket.on('user-joined', (user: UserInfo) => {
-      // Just add them to state; they will send us an offer shortly
-      if (!peerConnectionsRef.current.has(user.socketId)) {
-        createPeerConnection(user.socketId)
-        addPeer(user)
-      }
-    })
+      if (cancelled) return
 
-    // Receive an offer → send answer
-    socket.on(
-      'offer',
-      async ({
-        sdp,
-        from,
-        fromUser,
-      }: {
-        sdp: RTCSessionDescriptionInit
-        from: string
-        fromUser: UserInfo
-      }) => {
-        let pc = peerConnectionsRef.current.get(from)
-        if (!pc) {
-          pc = createPeerConnection(from)
-          addPeer(fromUser)
+      // 2. Register all socket listeners BEFORE emitting join-room
+      //    so we never miss an event that arrives immediately after joining.
+
+      socket.on('room-users', async (existingUsers: UserInfo[]) => {
+        for (const user of existingUsers) {
+          const pc = createPeerConnection(user.socketId)
+          addPeer(user)
+          try {
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            socket.emit('offer', { target: user.socketId, sdp: pc.localDescription })
+          } catch (err) {
+            console.error('[WebRTC] Error creating offer:', err)
+          }
         }
-        try {
-          await pc.setRemoteDescription(new RTCSessionDescription(sdp))
-          const answer = await pc.createAnswer()
-          await pc.setLocalDescription(answer)
-          socket.emit('answer', { target: from, sdp: pc.localDescription })
-        } catch (err) {
-          console.error('[WebRTC] Error handling offer:', err)
-        }
-      }
-    )
+      })
 
-    // Receive answer → set remote description
-    socket.on(
-      'answer',
-      async ({ sdp, from }: { sdp: RTCSessionDescriptionInit; from: string }) => {
-        const pc = peerConnectionsRef.current.get(from)
-        if (pc) {
+      socket.on('user-joined', (user: UserInfo) => {
+        if (!peerConnectionsRef.current.has(user.socketId)) {
+          createPeerConnection(user.socketId)
+          addPeer(user)
+        }
+      })
+
+      socket.on(
+        'offer',
+        async ({
+          sdp,
+          from,
+          fromUser,
+        }: {
+          sdp: RTCSessionDescriptionInit
+          from: string
+          fromUser: UserInfo
+        }) => {
+          let pc = peerConnectionsRef.current.get(from)
+          if (!pc) {
+            pc = createPeerConnection(from)
+            addPeer(fromUser)
+          }
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(sdp))
+            const answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
+            socket.emit('answer', { target: from, sdp: pc.localDescription })
           } catch (err) {
-            console.error('[WebRTC] Error handling answer:', err)
+            console.error('[WebRTC] Error handling offer:', err)
           }
         }
-      }
-    )
+      )
 
-    // ICE candidates
-    socket.on(
-      'ice-candidate',
-      async ({ candidate, from }: { candidate: RTCIceCandidateInit; from: string }) => {
-        const pc = peerConnectionsRef.current.get(from)
+      socket.on(
+        'answer',
+        async ({ sdp, from }: { sdp: RTCSessionDescriptionInit; from: string }) => {
+          const pc = peerConnectionsRef.current.get(from)
+          if (pc) {
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(sdp))
+            } catch (err) {
+              console.error('[WebRTC] Error handling answer:', err)
+            }
+          }
+        }
+      )
+
+      socket.on(
+        'ice-candidate',
+        async ({ candidate, from }: { candidate: RTCIceCandidateInit; from: string }) => {
+          const pc = peerConnectionsRef.current.get(from)
+          if (pc) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate))
+            } catch (err) {
+              console.error('[WebRTC] Error adding ICE candidate:', err)
+            }
+          }
+        }
+      )
+
+      socket.on('user-left', ({ socketId }: { socketId: string }) => {
+        const pc = peerConnectionsRef.current.get(socketId)
         if (pc) {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate))
-          } catch (err) {
-            console.error('[WebRTC] Error adding ICE candidate:', err)
-          }
+          pc.close()
+          peerConnectionsRef.current.delete(socketId)
         }
-      }
-    )
-
-    // Peer left
-    socket.on('user-left', ({ socketId }: { socketId: string }) => {
-      const pc = peerConnectionsRef.current.get(socketId)
-      if (pc) {
-        pc.close()
-        peerConnectionsRef.current.delete(socketId)
-      }
-      setPeers((prev) => {
-        const updated = new Map(prev)
-        updated.delete(socketId)
-        return updated
+        setPeers((prev) => {
+          const updated = new Map(prev)
+          updated.delete(socketId)
+          return updated
+        })
       })
-    })
 
-    // Remote media state changes
-    socket.on(
-      'user-audio-toggle',
-      ({ socketId, isEnabled }: { socketId: string; isEnabled: boolean }) => {
-        setPeers((prev) => {
-          const updated = new Map(prev)
-          const peer = updated.get(socketId)
-          if (peer) updated.set(socketId, { ...peer, isAudioEnabled: isEnabled })
-          return updated
-        })
-      }
-    )
+      socket.on(
+        'user-audio-toggle',
+        ({ socketId, isEnabled }: { socketId: string; isEnabled: boolean }) => {
+          setPeers((prev) => {
+            const updated = new Map(prev)
+            const peer = updated.get(socketId)
+            if (peer) updated.set(socketId, { ...peer, isAudioEnabled: isEnabled })
+            return updated
+          })
+        }
+      )
 
-    socket.on(
-      'user-video-toggle',
-      ({ socketId, isEnabled }: { socketId: string; isEnabled: boolean }) => {
-        setPeers((prev) => {
-          const updated = new Map(prev)
-          const peer = updated.get(socketId)
-          if (peer) updated.set(socketId, { ...peer, isVideoEnabled: isEnabled })
-          return updated
-        })
-      }
-    )
+      socket.on(
+        'user-video-toggle',
+        ({ socketId, isEnabled }: { socketId: string; isEnabled: boolean }) => {
+          setPeers((prev) => {
+            const updated = new Map(prev)
+            const peer = updated.get(socketId)
+            if (peer) updated.set(socketId, { ...peer, isVideoEnabled: isEnabled })
+            return updated
+          })
+        }
+      )
 
-    socket.on(
-      'user-hand-raised',
-      ({ socketId, isRaised }: { socketId: string; isRaised: boolean }) => {
-        setPeers((prev) => {
-          const updated = new Map(prev)
-          const peer = updated.get(socketId)
-          if (peer) updated.set(socketId, { ...peer, isHandRaised: isRaised })
-          return updated
-        })
-      }
-    )
+      socket.on(
+        'user-hand-raised',
+        ({ socketId, isRaised }: { socketId: string; isRaised: boolean }) => {
+          setPeers((prev) => {
+            const updated = new Map(prev)
+            const peer = updated.get(socketId)
+            if (peer) updated.set(socketId, { ...peer, isHandRaised: isRaised })
+            return updated
+          })
+        }
+      )
 
-    // Chat messages
-    socket.on('receive-message', (message: ChatMessage) => {
-      setMessages((prev) => [...prev, message])
-    })
+      socket.on('receive-message', (message: ChatMessage) => {
+        setMessages((prev) => [...prev, message])
+      })
 
-    // NOW emit join-room (after all listeners are registered)
-    socket.emit('join-room', { roomId, userName })
+      // 3. NOW join the room — ICE servers are ready, listeners are registered
+      socket.emit('join-room', { roomId, userName })
+    }
 
-    // Cleanup on unmount
+    initialize()
+
     return () => {
+      cancelled = true
       socket.off('room-users')
       socket.off('user-joined')
       socket.off('offer')
@@ -343,19 +335,16 @@ export function useWebRTC({
       screenStreamRef.current = screenStream
       const screenVideoTrack = screenStream.getVideoTracks()[0]
 
-      // Save the original camera track so we can restore it later
       if (localStreamRef.current) {
         const camTrack = localStreamRef.current.getVideoTracks()[0]
         if (camTrack) originalCameraTrackRef.current = camTrack
       }
 
-      // Replace the video sender track in every peer connection
       peerConnectionsRef.current.forEach((pc) => {
         const sender = pc.getSenders().find((s) => s.track?.kind === 'video')
         if (sender) sender.replaceTrack(screenVideoTrack)
       })
 
-      // Update local preview stream
       if (localStreamRef.current) {
         const camTrack = localStreamRef.current.getVideoTracks()[0]
         if (camTrack) localStreamRef.current.removeTrack(camTrack)
@@ -365,7 +354,6 @@ export function useWebRTC({
 
       setIsScreenSharing(true)
 
-      // Auto-stop when the user clicks "Stop sharing" in the browser UI
       screenVideoTrack.addEventListener('ended', () => {
         stopScreenShare()
       })
@@ -381,10 +369,8 @@ export function useWebRTC({
     screenStreamRef.current.getTracks().forEach((t) => t.stop())
     screenStreamRef.current = null
 
-    // Restore original camera track
     const restoredTrack = originalCameraTrackRef.current
     if (restoredTrack) {
-      // Re-enable the camera track
       restoredTrack.enabled = isVideoEnabled
 
       peerConnectionsRef.current.forEach((pc) => {
