@@ -4,12 +4,36 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Socket } from 'socket.io-client'
 import { UserInfo, PeerState, ChatMessage } from '@/types'
 
+// Build ICE server list with STUN + TURN.
+// TURN credentials can be injected via environment variables (recommended for production).
+// Falls back to OpenRelay public TURN servers for zero-config testing.
+const TURN_URL = process.env.NEXT_PUBLIC_TURN_URL
+const TURN_USERNAME = process.env.NEXT_PUBLIC_TURN_USERNAME
+const TURN_CREDENTIAL = process.env.NEXT_PUBLIC_TURN_CREDENTIAL
+
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
+    // STUN — discovers public IP
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
+
+    // TURN — relays media when direct P2P fails (essential for cross-network calls)
+    ...(TURN_URL && TURN_USERNAME && TURN_CREDENTIAL
+      ? [
+          // Custom TURN from env vars (Metered.ca, Twilio, etc.)
+          { urls: TURN_URL, username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+          { urls: TURN_URL.replace(':80', ':443'), username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+          { urls: TURN_URL.replace('turn:', 'turns:').replace(':80', ':443'), username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+        ]
+      : [
+          // OpenRelay free public TURN — good for testing, no sign-up needed
+          { urls: 'turn:openrelay.metered.ca:80',   username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443',  username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:80?transport=tcp',  username: 'openrelayproject', credential: 'openrelayproject' },
+        ]),
   ],
+  iceCandidatePoolSize: 10,
 }
 
 interface UseWebRTCProps {
