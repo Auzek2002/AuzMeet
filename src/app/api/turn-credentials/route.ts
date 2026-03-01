@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
 
+// Force this route to run on every request (never pre-rendered/cached at build time).
+// Without this, Next.js statically generates it once during build — before env vars
+// are available — and serves that stale response forever.
+export const dynamic = 'force-dynamic'
+
 // This route runs SERVER-SIDE only.
 // The secret key is never exposed to the browser.
 export async function GET() {
