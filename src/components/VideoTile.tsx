@@ -54,17 +54,24 @@ export function VideoTile({
         className
       )}
     >
-      {/* Video */}
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={isLocal}
-          className={clsx('w-full h-full object-cover', isLocal && 'scale-x-[-1]')}
-        />
-      ) : (
-        <Avatar name={name} />
+      {/* Video — always mounted so srcObject persists across camera toggles */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isLocal}
+        className={clsx(
+          'w-full h-full object-cover',
+          isLocal && 'scale-x-[-1]',
+          !showVideo && 'hidden'
+        )}
+      />
+
+      {/* Avatar shown as overlay when camera is off */}
+      {!showVideo && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Avatar name={name} />
+        </div>
       )}
 
       {/* Gradient overlay at bottom */}

@@ -207,7 +207,7 @@ export default function HomePage() {
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="border-t border-gray-200 py-4 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between text-xs text-gray-400">
-          <span>© {new Date().getFullYear()} AuzMeet</span>
+          <span>© {new Date().getFullYear()} AuzMeet. Made by Azaan Nabi Khan</span>
           <div className="flex gap-4">
             <span>Privacy</span>
             <span>Terms</span>

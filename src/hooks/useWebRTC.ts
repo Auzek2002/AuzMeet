@@ -41,8 +41,12 @@ export function useWebRTC({
 }: UseWebRTCProps): UseWebRTCReturn {
   const [localStream, setLocalStream] = useState<MediaStream | null>(initialStream)
   const [peers, setPeers] = useState<Map<string, PeerState>>(new Map())
-  const [isAudioEnabled, setIsAudioEnabled] = useState(true)
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true)
+  const [isAudioEnabled, setIsAudioEnabled] = useState(
+    () => initialStream?.getAudioTracks()[0]?.enabled ?? true
+  )
+  const [isVideoEnabled, setIsVideoEnabled] = useState(
+    () => initialStream?.getVideoTracks()[0]?.enabled ?? true
+  )
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isHandRaised, setIsHandRaised] = useState(false)
