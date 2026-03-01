@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* Custom scrollbar for dark panels */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #5f6368;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9aa0a6;
+}
+
+/* Smooth transitions for panel open/close */
+.panel-enter {
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Speaking indicator border animation */
+@keyframes speakingPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px #1a73e8;
+  }
+  50% {
+    box-shadow: 0 0 0 4px #1a73e8;
+  }
+}
+
+.speaking-indicator {
+  animation: speakingPulse 1s ease-in-out infinite;
+}

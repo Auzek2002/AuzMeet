@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm install next@14)",
+      "Bash(npm install eslint-config-next@14)",
+      "Bash(npx tsc --noEmit)"
+    ]
+  }
+}
