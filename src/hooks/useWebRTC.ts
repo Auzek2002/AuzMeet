@@ -130,6 +130,25 @@ export function useWebRTC({
     if (!socket || !roomId) return
 
     let cancelled = false
+    let joined = false // tracks whether join-room has been emitted at least once
+
+    // ── Reconnect handler ────────────────────────────────────────────────
+    // Fires when the socket reconnects after the server restarted or the
+    // connection dropped.  The server's in-memory room state is gone, so we
+    // close all stale peer connections and re-join the room from scratch.
+    const handleReconnect = () => {
+      if (!joined) return // initial connect — join-room hasn't fired yet, ignore
+      console.log('[Socket] Reconnected — clearing stale state and rejoining room')
+      peerConnectionsRef.current.forEach((pc) => pc.close())
+      peerConnectionsRef.current.clear()
+      setPeers(new Map())
+      socket.emit('join-room', { roomId, userName })
+    }
+
+    // 'connect' fires on both initial connection AND every reconnection.
+    // Because the socket is already connected when this effect runs,
+    // the NEXT 'connect' event is always a reconnection.
+    socket.on('connect', handleReconnect)
 
     const initialize = async () => {
       // 1. Fetch TURN credentials from our server-side API route FIRST.
@@ -281,12 +300,14 @@ export function useWebRTC({
 
       // 3. NOW join the room — ICE servers are ready, listeners are registered
       socket.emit('join-room', { roomId, userName })
+      joined = true // reconnect handler is now active
     }
 
     initialize()
 
     return () => {
       cancelled = true
+      socket.off('connect', handleReconnect)
       socket.off('room-users')
       socket.off('user-joined')
       socket.off('offer')

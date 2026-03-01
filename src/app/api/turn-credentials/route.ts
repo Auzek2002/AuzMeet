@@ -1,44 +1,34 @@
 import { NextResponse } from 'next/server'
 
-// Force this route to run on every request (never pre-rendered/cached at build time).
-// Without this, Next.js statically generates it once during build — before env vars
-// are available — and serves that stale response forever.
 export const dynamic = 'force-dynamic'
 
-// This route runs SERVER-SIDE only.
-// The secret key is never exposed to the browser.
 export async function GET() {
-  const domain = process.env.METERED_DOMAIN       // e.g. auzmeet.metered.live
-  const secretKey = process.env.METERED_SECRET_KEY // your secret key from Metered dashboard
+  const domain     = process.env.METERED_DOMAIN          // e.g. auzmeet.metered.live
+  const username   = process.env.METERED_TURN_USERNAME   // username from TURN Credentials page
+  const credential = process.env.METERED_TURN_CREDENTIAL // password from TURN Credentials page
 
-  // If env vars are not set, fall back to free public TURN (OpenRelay)
-  if (!domain || !secretKey) {
+  // If Metered env vars are configured, use them
+  if (domain && username && credential) {
     return NextResponse.json({
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'turn:openrelay.metered.ca:80',              username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443',             username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: `stun:${domain}:3478` },
+        { urls: `turn:${domain}:80`,                username, credential },
+        { urls: `turn:${domain}:443`,               username, credential },
+        { urls: `turn:${domain}:3478`,              username, credential },
+        { urls: `turn:${domain}:443?transport=tcp`, username, credential },
+        { urls: `turns:${domain}:443`,              username, credential },
       ],
     })
   }
 
-  try {
-    // Metered returns a ready-to-use array of ICE servers
-    const res = await fetch(
-      `https://${domain}/api/v1/turn/credentials?apiKey=${secretKey}`
-    )
-
-    if (!res.ok) throw new Error(`Metered API error: ${res.status}`)
-
-    const iceServers = await res.json()
-    return NextResponse.json({ iceServers })
-  } catch (err) {
-    console.error('[TURN] Failed to fetch credentials from Metered:', err)
-    // Return STUN-only as last resort (still better than nothing)
-    return NextResponse.json({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-    })
-  }
+  // Fallback: OpenRelay free public TURN (no sign-up, works out of the box)
+  console.warn('[TURN] Metered env vars not set — falling back to OpenRelay')
+  return NextResponse.json({
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'turn:openrelay.metered.ca:80',                username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443',               username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    ],
+  })
 }
