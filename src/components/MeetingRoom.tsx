@@ -108,31 +108,43 @@ export function MeetingRoom({
           />
         </div>
 
-        {/* Side panel */}
-        {activePanel === 'participants' && (
-          <ParticipantsPanel
-            localName={userName}
-            localSocketId={socket.id ?? ''}
-            isAudioEnabled={isAudioEnabled}
-            isVideoEnabled={isVideoEnabled}
-            isHandRaised={isHandRaised}
-            peers={peers}
-            isOwner={isOwner}
-            ownerId={ownerId}
-            onKick={kickParticipant}
-            onClose={() => setActivePanel(null)}
-          />
-        )}
-        {activePanel === 'chat' && (
-          <ChatPanel
-            messages={messages}
-            onSendMessage={sendMessage}
-            onClose={() => setActivePanel(null)}
-            localSocketId={socket.id ?? ''}
-          />
-        )}
-        {activePanel === 'info' && (
-          <InfoPanel roomId={roomId} onClose={() => setActivePanel(null)} />
+        {/* Side panel — full-screen overlay on mobile, side panel on sm+ */}
+        {activePanel && (
+          <>
+            {/* Mobile backdrop: tapping it closes the panel */}
+            <div
+              className="fixed inset-0 z-30 bg-black/60 sm:hidden"
+              onClick={() => setActivePanel(null)}
+            />
+            {/* Panel container: fixed full-height on mobile, flex child on sm+ */}
+            <div className="fixed inset-y-0 right-0 z-40 w-full sm:relative sm:inset-auto sm:z-auto sm:w-auto">
+              {activePanel === 'participants' && (
+                <ParticipantsPanel
+                  localName={userName}
+                  localSocketId={socket.id ?? ''}
+                  isAudioEnabled={isAudioEnabled}
+                  isVideoEnabled={isVideoEnabled}
+                  isHandRaised={isHandRaised}
+                  peers={peers}
+                  isOwner={isOwner}
+                  ownerId={ownerId}
+                  onKick={kickParticipant}
+                  onClose={() => setActivePanel(null)}
+                />
+              )}
+              {activePanel === 'chat' && (
+                <ChatPanel
+                  messages={messages}
+                  onSendMessage={sendMessage}
+                  onClose={() => setActivePanel(null)}
+                  localSocketId={socket.id ?? ''}
+                />
+              )}
+              {activePanel === 'info' && (
+                <InfoPanel roomId={roomId} onClose={() => setActivePanel(null)} />
+              )}
+            </div>
+          </>
         )}
       </div>
 

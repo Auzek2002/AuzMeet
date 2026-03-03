@@ -56,9 +56,9 @@ function ControlBtn({
       onClick={onClick}
       title={title}
       className={clsx(
-        'relative p-3 rounded-full transition-all duration-150 focus:outline-none',
+        'relative p-2 sm:p-3 rounded-full transition-all duration-150 focus:outline-none touch-manipulation',
         danger
-          ? 'bg-red-600 hover:bg-red-700 text-white'
+          ? 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white'
           : active
           ? 'bg-[#8ab4f8] text-[#202124] hover:bg-[#a8c7fa]'
           : 'bg-[#3c4043] text-[#e8eaed] hover:bg-[#5f6368]'
@@ -110,16 +110,16 @@ export function ControlBar({
   }, [])
 
   return (
-    <div className="h-20 bg-[#202124] border-t border-[#3c4043] flex items-center justify-between px-4 md:px-8 flex-shrink-0">
+    <div className="h-16 sm:h-20 bg-[#202124] border-t border-[#3c4043] flex items-center justify-between px-3 md:px-8 flex-shrink-0">
       {/* Left: Timer */}
-      <div className="w-28 hidden sm:flex items-center">
+      <div className="w-16 sm:w-28 hidden sm:flex items-center">
         <span className="text-[#e8eaed] text-sm font-mono tabular-nums">
           {formatElapsed(elapsed)}
         </span>
       </div>
 
       {/* Center: Primary controls */}
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
         <ControlBtn
           onClick={onToggleAudio}
           active={!isAudioEnabled}
@@ -152,21 +152,22 @@ export function ControlBar({
           <Hand size={20} />
         </ControlBtn>
 
-        <div className="w-px h-8 bg-[#3c4043] mx-1" />
+        <div className="w-px h-6 sm:h-8 bg-[#3c4043] mx-0.5 sm:mx-1" />
 
         {/* Leave button */}
         <button
           onClick={onLeave}
           title="Leave call"
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-full px-4 py-2.5 font-medium text-sm transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-full px-3 sm:px-4 py-2 sm:py-2.5 font-medium text-sm transition-colors touch-manipulation"
         >
-          <PhoneOff size={18} />
+          <PhoneOff size={16} className="sm:hidden" />
+          <PhoneOff size={18} className="hidden sm:block" />
           <span className="hidden sm:inline">Leave</span>
         </button>
       </div>
 
       {/* Right: Panel toggles */}
-      <div className="w-28 flex items-center justify-end gap-1">
+      <div className="flex items-center justify-end gap-1 sm:w-28">
         <ControlBtn
           onClick={onToggleInfo}
           active={isInfoOpen}

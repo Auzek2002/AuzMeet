@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Minimize2, Maximize2 } from 'lucide-react'
+import { Minimize2, Maximize2, Expand, Shrink } from 'lucide-react'
 import { PeerState } from '@/types'
 import { VideoTile } from './VideoTile'
 
@@ -17,8 +17,8 @@ interface VideoGridProps {
 function getGridClass(count: number): string {
   if (count === 1) return 'grid-cols-1'
   if (count <= 4) return 'grid-cols-2'
-  if (count <= 9) return 'grid-cols-3'
-  return 'grid-cols-4'
+  if (count <= 9) return 'grid-cols-2 sm:grid-cols-3'
+  return 'grid-cols-2 sm:grid-cols-4'
 }
 
 export function VideoGrid({
@@ -29,14 +29,20 @@ export function VideoGrid({
   peers,
   screenSharingSocketId,
 }: VideoGridProps) {
+  // isExpanded: show the screen share in the featured layout (vs collapsed grid view)
   const [isExpanded, setIsExpanded] = useState(true)
+  // isPinned: on mobile, hide the filmstrip so the shared screen fills the area
+  const [isPinned, setIsPinned] = useState(false)
 
   const isScreenSharing = screenSharingSocketId !== null
   const peerArray = Array.from(peers.values())
 
   // Auto-expand the featured view whenever a new screen share starts
   useEffect(() => {
-    if (isScreenSharing) setIsExpanded(true)
+    if (isScreenSharing) {
+      setIsExpanded(true)
+      setIsPinned(false)
+    }
   }, [isScreenSharing])
 
   // ── Screen share layout ──────────────────────────────────────────────────
@@ -63,7 +69,6 @@ export function VideoGrid({
     const filmTiles: FilmTile[] = []
 
     if (!isLocalSharing) {
-      // Local user goes first in the strip
       filmTiles.push({
         id: 'local',
         stream: localStream,
@@ -90,9 +95,11 @@ export function VideoGrid({
       )
 
     return (
-      <div className="flex w-full h-full gap-1 p-1">
+      // Mobile: column (main on top, filmstrip below)
+      // Desktop: row (main left, filmstrip right)
+      <div className="flex flex-col sm:flex-row w-full h-full gap-1 p-1">
         {/* ── Main screen share tile ── */}
-        <div className="relative flex-1 min-w-0">
+        <div className="relative flex-1 min-w-0 min-h-0">
           <VideoTile
             stream={mainStream}
             name={mainName}
@@ -104,22 +111,40 @@ export function VideoGrid({
             contain={true}
             className="w-full h-full"
           />
-          {/* Collapse button */}
+
+          {/* Collapse button — always visible */}
           <button
             onClick={() => setIsExpanded(false)}
-            className="absolute top-2 right-2 z-10 flex items-center gap-1.5 bg-black/50 hover:bg-black/75 text-white text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors"
+            className="absolute top-2 right-2 z-10 flex items-center gap-1.5 bg-black/50 hover:bg-black/75 active:bg-black/90 text-white text-xs font-medium rounded-lg px-3 py-2 transition-colors touch-manipulation"
             title="Collapse to grid view"
           >
             <Minimize2 size={13} />
-            Collapse
+            <span className="hidden xs:inline">Collapse</span>
           </button>
+
+          {/* Pin / Unpin button — mobile only, hides/shows the filmstrip */}
+          {filmTiles.length > 0 && (
+            <button
+              onClick={() => setIsPinned((p) => !p)}
+              className="absolute top-2 left-2 z-10 sm:hidden flex items-center gap-1.5 bg-black/50 active:bg-black/90 text-white text-xs font-medium rounded-lg px-3 py-2 transition-colors touch-manipulation"
+              title={isPinned ? 'Show participants' : 'Fullscreen'}
+            >
+              {isPinned ? <Shrink size={13} /> : <Expand size={13} />}
+              {isPinned ? 'Show all' : 'Fullscreen'}
+            </button>
+          )}
         </div>
 
         {/* ── Participant filmstrip ── */}
-        {filmTiles.length > 0 && (
-          <div className="flex flex-col gap-1 w-44 shrink-0 overflow-y-auto">
+        {/* Mobile: horizontal row at bottom (hidden when pinned) */}
+        {/* Desktop: vertical column on the right */}
+        {filmTiles.length > 0 && !isPinned && (
+          <div className="flex sm:flex-col flex-row gap-1 h-24 sm:h-auto w-full sm:w-44 shrink-0 overflow-x-auto sm:overflow-x-hidden sm:overflow-y-auto">
             {filmTiles.map((tile) => (
-              <div key={tile.id} className="w-full aspect-video shrink-0">
+              <div
+                key={tile.id}
+                className="h-full aspect-video shrink-0 sm:w-full sm:h-auto sm:aspect-video"
+              >
                 <VideoTile
                   stream={tile.stream}
                   name={tile.name}
@@ -169,7 +194,7 @@ export function VideoGrid({
       {isScreenSharing && (
         <button
           onClick={() => setIsExpanded(true)}
-          className="absolute top-2 right-2 z-10 flex items-center gap-1.5 bg-black/50 hover:bg-black/75 text-white text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors"
+          className="absolute top-2 right-2 z-10 flex items-center gap-1.5 bg-black/50 hover:bg-black/75 active:bg-black/90 text-white text-xs font-medium rounded-lg px-3 py-2 transition-colors touch-manipulation"
           title="Expand screen share"
         >
           <Maximize2 size={13} />

@@ -35,7 +35,7 @@ export function InfoPanel({ roomId, onClose }: InfoPanelProps) {
   }
 
   return (
-    <div className="w-72 bg-[#292a2d] h-full flex flex-col border-l border-[#3c4043] panel-enter">
+    <div className="w-full sm:w-72 bg-[#292a2d] h-full flex flex-col sm:border-l border-[#3c4043] panel-enter">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-[#3c4043]">
         <h2 className="text-white font-medium">Meeting details</h2>
