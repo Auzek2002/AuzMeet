@@ -11,6 +11,8 @@ interface VideoTileProps {
   isVideoEnabled: boolean
   isHandRaised?: boolean
   isLocal?: boolean
+  mirror?: boolean    // override auto-mirror (defaults to isLocal)
+  contain?: boolean   // use object-contain instead of object-cover (for screen share)
   className?: string
 }
 
@@ -35,6 +37,8 @@ export function VideoTile({
   isVideoEnabled,
   isHandRaised = false,
   isLocal = false,
+  mirror,
+  contain = false,
   className = '',
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -46,6 +50,8 @@ export function VideoTile({
   }, [stream])
 
   const showVideo = !!stream && isVideoEnabled
+  // mirror defaults to isLocal unless explicitly overridden (screen share passes mirror={false})
+  const shouldMirror = mirror !== undefined ? mirror : isLocal
 
   return (
     <div
@@ -61,8 +67,9 @@ export function VideoTile({
         playsInline
         muted={isLocal}
         className={clsx(
-          'w-full h-full object-cover',
-          isLocal && 'scale-x-[-1]',
+          'w-full h-full',
+          contain ? 'object-contain' : 'object-cover',
+          shouldMirror && 'scale-x-[-1]',
           !showVideo && 'hidden'
         )}
       />

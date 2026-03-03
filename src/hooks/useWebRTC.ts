@@ -25,12 +25,16 @@ interface UseWebRTCReturn {
   isScreenSharing: boolean
   messages: ChatMessage[]
   isHandRaised: boolean
+  isOwner: boolean
+  ownerId: string | null
+  wasKicked: boolean
   toggleAudio: () => void
   toggleVideo: () => void
   startScreenShare: () => Promise<void>
   stopScreenShare: () => Promise<void>
   sendMessage: (message: string) => void
   toggleHand: () => void
+  kickParticipant: (socketId: string) => void
 }
 
 export function useWebRTC({
@@ -50,6 +54,8 @@ export function useWebRTC({
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isHandRaised, setIsHandRaised] = useState(false)
+  const [ownerId, setOwnerId] = useState<string | null>(null)
+  const [wasKicked, setWasKicked] = useState(false)
 
   const localStreamRef = useRef<MediaStream | null>(initialStream)
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
@@ -124,6 +130,7 @@ export function useWebRTC({
         isAudioEnabled: user.isAudioEnabled,
         isVideoEnabled: user.isVideoEnabled,
         isHandRaised: user.isHandRaised,
+        isScreenSharing: user.isScreenSharing ?? false,
       })
       return updated
     })
@@ -173,19 +180,23 @@ export function useWebRTC({
       // 2. Register all socket listeners BEFORE emitting join-room
       //    so we never miss an event that arrives immediately after joining.
 
-      socket.on('room-users', async (existingUsers: UserInfo[]) => {
-        for (const user of existingUsers) {
-          const pc = createPeerConnection(user.socketId)
-          addPeer(user)
-          try {
-            const offer = await pc.createOffer()
-            await pc.setLocalDescription(offer)
-            socket.emit('offer', { target: user.socketId, sdp: pc.localDescription })
-          } catch (err) {
-            console.error('[WebRTC] Error creating offer:', err)
+      socket.on(
+        'room-users',
+        async ({ users: existingUsers, ownerId: roomOwnerId }: { users: UserInfo[]; ownerId: string }) => {
+          setOwnerId(roomOwnerId)
+          for (const user of existingUsers) {
+            const pc = createPeerConnection(user.socketId)
+            addPeer(user)
+            try {
+              const offer = await pc.createOffer()
+              await pc.setLocalDescription(offer)
+              socket.emit('offer', { target: user.socketId, sdp: pc.localDescription })
+            } catch (err) {
+              console.error('[WebRTC] Error creating offer:', err)
+            }
           }
         }
-      })
+      )
 
       socket.on('user-joined', (user: UserInfo) => {
         if (!peerConnectionsRef.current.has(user.socketId)) {
@@ -302,6 +313,26 @@ export function useWebRTC({
         setMessages((prev) => [...prev, message])
       })
 
+      socket.on('kicked', () => {
+        setWasKicked(true)
+      })
+
+      socket.on('owner-changed', ({ ownerId: newOwnerId }: { ownerId: string }) => {
+        setOwnerId(newOwnerId)
+      })
+
+      socket.on(
+        'user-screen-share-toggle',
+        ({ socketId, isSharing }: { socketId: string; isSharing: boolean }) => {
+          setPeers((prev) => {
+            const updated = new Map(prev)
+            const peer = updated.get(socketId)
+            if (peer) updated.set(socketId, { ...peer, isScreenSharing: isSharing })
+            return updated
+          })
+        }
+      )
+
       // 3. NOW join the room — ICE servers are ready, listeners are registered
       socket.emit('join-room', { roomId, userName })
       joined = true // reconnect handler is now active
@@ -322,6 +353,9 @@ export function useWebRTC({
       socket.off('user-video-toggle')
       socket.off('user-hand-raised')
       socket.off('receive-message')
+      socket.off('kicked')
+      socket.off('owner-changed')
+      socket.off('user-screen-share-toggle')
 
       peerConnectionsRef.current.forEach((pc) => pc.close())
       peerConnectionsRef.current.clear()
@@ -378,6 +412,7 @@ export function useWebRTC({
       }
 
       setIsScreenSharing(true)
+      socket.emit('screen-share-toggle', { isSharing: true })
 
       screenVideoTrack.addEventListener('ended', () => {
         stopScreenShare()
@@ -413,12 +448,21 @@ export function useWebRTC({
     }
 
     setIsScreenSharing(false)
-  }, [isVideoEnabled])
+    socket.emit('screen-share-toggle', { isSharing: false })
+  }, [isVideoEnabled, socket])
 
   // ── Chat ─────────────────────────────────────────────────────────────────
   const sendMessage = useCallback(
     (message: string) => {
       socket.emit('send-message', { message })
+    },
+    [socket]
+  )
+
+  // ── Kick participant ─────────────────────────────────────────────────────
+  const kickParticipant = useCallback(
+    (targetSocketId: string) => {
+      socket.emit('kick-participant', { targetSocketId })
     },
     [socket]
   )
@@ -440,11 +484,15 @@ export function useWebRTC({
     isScreenSharing,
     messages,
     isHandRaised,
+    isOwner: ownerId === socket.id,
+    ownerId,
+    wasKicked,
     toggleAudio,
     toggleVideo,
     startScreenShare,
     stopScreenShare,
     sendMessage,
     toggleHand,
+    kickParticipant,
   }
 }

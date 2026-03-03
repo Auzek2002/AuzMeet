@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Socket } from 'socket.io-client'
 import { useWebRTC } from '@/hooks/useWebRTC'
@@ -36,13 +36,35 @@ export function MeetingRoom({
     isScreenSharing,
     messages,
     isHandRaised,
+    isOwner,
+    ownerId,
+    wasKicked,
     toggleAudio,
     toggleVideo,
     startScreenShare,
     stopScreenShare,
     sendMessage,
     toggleHand,
+    kickParticipant,
   } = useWebRTC({ roomId, socket, userName, initialStream })
+
+  // Redirect to home if the local user was kicked
+  useEffect(() => {
+    if (wasKicked) {
+      localStream?.getTracks().forEach((t) => t.stop())
+      socket.disconnect()
+      router.push('/?kicked=1')
+    }
+  }, [wasKicked, localStream, socket, router])
+
+  // Determine who is currently screen sharing ('local' | peer socketId | null)
+  const screenSharingSocketId = useMemo(() => {
+    if (isScreenSharing) return 'local'
+    for (const [socketId, peer] of peers) {
+      if (peer.isScreenSharing) return socketId
+    }
+    return null
+  }, [isScreenSharing, peers])
 
   const handleToggleScreenShare = useCallback(() => {
     if (isScreenSharing) {
@@ -82,6 +104,7 @@ export function MeetingRoom({
             isAudioEnabled={isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
             peers={peers}
+            screenSharingSocketId={screenSharingSocketId}
           />
         </div>
 
@@ -89,10 +112,14 @@ export function MeetingRoom({
         {activePanel === 'participants' && (
           <ParticipantsPanel
             localName={userName}
+            localSocketId={socket.id ?? ''}
             isAudioEnabled={isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
             isHandRaised={isHandRaised}
             peers={peers}
+            isOwner={isOwner}
+            ownerId={ownerId}
+            onKick={kickParticipant}
             onClose={() => setActivePanel(null)}
           />
         )}

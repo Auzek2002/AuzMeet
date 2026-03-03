@@ -30,7 +30,7 @@ app.prepare().then(() => {
   })
 
   // In-memory state
-  // rooms: Map<roomId, Set<socketId>>
+  // rooms: Map<roomId, { members: Set<socketId>, ownerId: string }>
   // users: Map<socketId, UserInfo>
   const rooms = new Map()
   const users = new Map()
@@ -47,27 +47,28 @@ app.prepare().then(() => {
         isAudioEnabled: true,
         isVideoEnabled: true,
         isHandRaised: false,
+        isScreenSharing: false,
       }
 
       users.set(socket.id, user)
       socket.join(roomId)
 
       if (!rooms.has(roomId)) {
-        rooms.set(roomId, new Set())
+        rooms.set(roomId, { members: new Set(), ownerId: socket.id })
       }
 
       const room = rooms.get(roomId)
 
       // Snapshot of existing users BEFORE adding this one
-      const existingUsers = Array.from(room)
+      const existingUsers = Array.from(room.members)
         .map((id) => users.get(id))
         .filter(Boolean)
 
-      // Tell the new joiner who is already in the room
-      socket.emit('room-users', existingUsers)
+      // Tell the new joiner who is already in the room + who the owner is
+      socket.emit('room-users', { users: existingUsers, ownerId: room.ownerId })
 
       // Add to room
-      room.add(socket.id)
+      room.members.add(socket.id)
 
       // Notify everyone else
       socket.to(roomId).emit('user-joined', user)
@@ -125,6 +126,40 @@ app.prepare().then(() => {
       }
     })
 
+    socket.on('screen-share-toggle', ({ isSharing }) => {
+      const user = users.get(socket.id)
+      if (user) {
+        user.isScreenSharing = isSharing
+        socket.to(user.roomId).emit('user-screen-share-toggle', {
+          socketId: socket.id,
+          isSharing,
+        })
+      }
+    })
+
+    // ── Kick participant ───────────────────────────────────────────────────
+    socket.on('kick-participant', ({ targetSocketId }) => {
+      const requester = users.get(socket.id)
+      if (!requester) return
+      const room = rooms.get(requester.roomId)
+      if (!room || room.ownerId !== socket.id) return // only owner can kick
+      if (!room.members.has(targetSocketId)) return
+
+      // Notify the kicked user first so they can handle it before disconnect
+      io.to(targetSocketId).emit('kicked')
+
+      // Clean up server state
+      room.members.delete(targetSocketId)
+      users.delete(targetSocketId)
+
+      // Tell everyone else they left
+      socket.to(requester.roomId).emit('user-left', { socketId: targetSocketId })
+
+      // Remove from Socket.io room
+      const targetSocket = io.sockets.sockets.get(targetSocketId)
+      if (targetSocket) targetSocket.leave(requester.roomId)
+    })
+
     // ── Chat ───────────────────────────────────────────────────────────────
     socket.on('send-message', ({ message }) => {
       const user = users.get(socket.id)
@@ -146,10 +181,15 @@ app.prepare().then(() => {
       if (user) {
         const room = rooms.get(user.roomId)
         if (room) {
-          room.delete(socket.id)
-          if (room.size === 0) {
+          room.members.delete(socket.id)
+          if (room.members.size === 0) {
             rooms.delete(user.roomId)
             console.log(`[Room ${user.roomId}] Empty — removed`)
+          } else if (room.ownerId === socket.id) {
+            // Transfer ownership to the next member in the room
+            room.ownerId = room.members.values().next().value
+            io.to(user.roomId).emit('owner-changed', { ownerId: room.ownerId })
+            console.log(`[Room ${user.roomId}] Ownership transferred to ${room.ownerId}`)
           }
         }
         socket.to(user.roomId).emit('user-left', { socketId: socket.id })

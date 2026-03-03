@@ -5,6 +5,7 @@ export interface UserInfo {
   isAudioEnabled: boolean
   isVideoEnabled: boolean
   isHandRaised: boolean
+  isScreenSharing: boolean
 }
 
 export interface PeerState {
@@ -14,6 +15,7 @@ export interface PeerState {
   isAudioEnabled: boolean
   isVideoEnabled: boolean
   isHandRaised: boolean
+  isScreenSharing: boolean
 }
 
 export interface ChatMessage {
