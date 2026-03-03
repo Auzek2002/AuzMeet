@@ -1,8 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Video, Link2, ChevronRight, Users, Shield, Zap, AlertCircle } from 'lucide-react'
+
+function KickedBanner() {
+  const searchParams = useSearchParams()
+  if (searchParams.get('kicked') !== '1') return null
+  return (
+    <div className="flex items-center justify-center gap-2 bg-red-50 border-b border-red-200 px-4 py-3 text-red-700 text-sm">
+      <AlertCircle size={15} className="flex-shrink-0" />
+      You were removed from the meeting by the host.
+    </div>
+  )
+}
 
 function generateRoomId(): string {
   const letters = 'abcdefghijklmnopqrstuvwxyz'
@@ -16,8 +27,6 @@ function generateRoomId(): string {
 
 export default function HomePage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const wasKicked = searchParams.get('kicked') === '1'
   const [code, setCode] = useState('')
   const [codeError, setCodeError] = useState('')
 
@@ -50,12 +59,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* ── Kicked banner ───────────────────────────────────────────────── */}
-      {wasKicked && (
-        <div className="flex items-center justify-center gap-2 bg-red-50 border-b border-red-200 px-4 py-3 text-red-700 text-sm">
-          <AlertCircle size={15} className="flex-shrink-0" />
-          You were removed from the meeting by the host.
-        </div>
-      )}
+      <Suspense>
+        <KickedBanner />
+      </Suspense>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
