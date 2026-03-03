@@ -13,6 +13,10 @@ export function getSocket(): Socket {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     })
+  } else if (socket.disconnected) {
+    // After an explicit disconnect (Leave button), re-connect so the user
+    // can join a new meeting without refreshing the page.
+    socket.connect()
   }
   return socket
 }

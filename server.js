@@ -73,7 +73,7 @@ app.prepare().then(() => {
       // Notify everyone else
       socket.to(roomId).emit('user-joined', user)
 
-      console.log(`[Room ${roomId}] "${user.name}" joined. Size: ${room.size}`)
+      console.log(`[Room ${roomId}] "${user.name}" joined. Size: ${room.members.size}`)
     })
 
     // ── WebRTC signaling ───────────────────────────────────────────────────

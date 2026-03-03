@@ -199,7 +199,22 @@ export function useWebRTC({
       )
 
       socket.on('user-joined', (user: UserInfo) => {
-        if (!peerConnectionsRef.current.has(user.socketId)) {
+        const existing = peerConnectionsRef.current.get(user.socketId)
+        const isStale =
+          existing &&
+          (existing.signalingState === 'closed' ||
+            existing.connectionState === 'failed' ||
+            existing.connectionState === 'closed')
+        if (!existing || isStale) {
+          if (existing) {
+            existing.close()
+            peerConnectionsRef.current.delete(user.socketId)
+            setPeers((prev) => {
+              const updated = new Map(prev)
+              updated.delete(user.socketId)
+              return updated
+            })
+          }
           createPeerConnection(user.socketId)
           addPeer(user)
         }
@@ -217,7 +232,22 @@ export function useWebRTC({
           fromUser: UserInfo
         }) => {
           let pc = peerConnectionsRef.current.get(from)
-          if (!pc) {
+          const isStale =
+            pc &&
+            (pc.signalingState === 'closed' ||
+              pc.connectionState === 'failed' ||
+              pc.connectionState === 'closed')
+          if (!pc || isStale) {
+            if (pc) {
+              pc.close()
+              peerConnectionsRef.current.delete(from)
+              // Clear stale peer state so addPeer can re-add it with a fresh stream
+              setPeers((prev) => {
+                const updated = new Map(prev)
+                updated.delete(from)
+                return updated
+              })
+            }
             pc = createPeerConnection(from)
             addPeer(fromUser)
           }
