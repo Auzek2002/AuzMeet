@@ -62,7 +62,9 @@ function ParticipantRow({
             {isLocal && <span className="text-[#9aa0a6] text-xs ml-1">(You)</span>}
           </span>
           {isRoomOwner && (
-            <Crown size={12} className="text-yellow-400 flex-shrink-0" title="Host" />
+            <span title="Host">
+              <Crown size={12} className="text-yellow-400 flex-shrink-0" />
+            </span>
           )}
         </div>
       </div>
