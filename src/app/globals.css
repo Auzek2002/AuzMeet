@@ -13,6 +13,15 @@ body {
   height: 100%;
 }
 
+/* Hide scrollbar on the main page */
+html::-webkit-scrollbar {
+  display: none;
+}
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
 /* Custom scrollbar for dark panels */
 ::-webkit-scrollbar {
   width: 6px;
@@ -59,4 +68,21 @@ body {
 
 .speaking-indicator {
   animation: speakingPulse 1s ease-in-out infinite;
+}
+
+/* LightPillar WebGL canvas container */
+.light-pillar-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.light-pillar-fallback {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
