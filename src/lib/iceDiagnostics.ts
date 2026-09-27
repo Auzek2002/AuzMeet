@@ -15,6 +15,12 @@
 
 export type CandidateType = 'host' | 'srflx' | 'relay' | 'prflx'
 
+/** Public STUN used to test the network itself, independent of the server config. */
+const BASELINE_STUN: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+]
+
 export interface IceDiagnostics {
   provider: string
   hasTurn: boolean
@@ -24,7 +30,58 @@ export interface IceDiagnostics {
   relayProtocols: string[]
   errors: { code: number; text: string; url: string }[]
   durationMs: number
-  verdict: 'ok' | 'no-relay' | 'no-turn-configured'
+  /** Server-reflexive candidates from public STUN alone. 0 means UDP is blocked. */
+  baselineSrflx: number
+  verdict: 'ok' | 'udp-blocked' | 'turn-broken' | 'no-turn-configured'
+}
+
+interface GatherResult {
+  counts: Record<CandidateType, number>
+  relayProtocols: Set<string>
+  errors: { code: number; text: string; url: string }[]
+}
+
+/** Gathers candidates for one ICE configuration and reports what came back. */
+async function gather(iceServers: RTCIceServer[], timeoutMs: number): Promise<GatherResult> {
+  const counts: Record<CandidateType, number> = { host: 0, srflx: 0, relay: 0, prflx: 0 }
+  const relayProtocols = new Set<string>()
+  const errors: { code: number; text: string; url: string }[] = []
+
+  const pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 0 })
+
+  pc.addEventListener('icecandidateerror', (event) => {
+    const e = event as RTCPeerConnectionIceErrorEvent
+    if (errors.length < 12) {
+      errors.push({ code: e.errorCode, text: e.errorText || '', url: e.url || '' })
+    }
+  })
+
+  pc.createDataChannel('diagnostics')
+  await pc.setLocalDescription(await pc.createOffer())
+
+  await new Promise<void>((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    pc.onicecandidate = (event) => {
+      if (!event.candidate) return finish()
+      const match = event.candidate.candidate.match(/ typ (host|srflx|relay|prflx)/)
+      if (!match) return
+      const type = match[1] as CandidateType
+      counts[type] += 1
+      if (type === 'relay') relayProtocols.add(event.candidate.protocol || 'udp')
+    }
+    pc.onicegatheringstatechange = () => {
+      if (pc.iceGatheringState === 'complete') finish()
+    }
+    setTimeout(finish, timeoutMs)
+  })
+
+  pc.close()
+  return { counts, relayProtocols, errors }
 }
 
 const GATHER_TIMEOUT_MS = 15000
@@ -40,53 +97,23 @@ export async function runIceDiagnostics(): Promise<IceDiagnostics> {
     warning?: string
   }
 
-  const counts: Record<CandidateType, number> = { host: 0, srflx: 0, relay: 0, prflx: 0 }
-  const relayProtocols = new Set<string>()
-  const errors: { code: number; text: string; url: string }[] = []
-
-  const pc = new RTCPeerConnection({ iceServers: data.iceServers, iceCandidatePoolSize: 0 })
-
-  pc.addEventListener('icecandidateerror', (event) => {
-    const e = event as RTCPeerConnectionIceErrorEvent
-    // 701 is "could not reach the server"; 400/401 mean it answered and refused.
-    if (errors.length < 12) {
-      errors.push({ code: e.errorCode, text: e.errorText || '', url: e.url || '' })
-    }
-  })
-
-  // A data channel is enough to make the agent gather candidates.
-  pc.createDataChannel('diagnostics')
-  await pc.setLocalDescription(await pc.createOffer())
-
-  await new Promise<void>((resolve) => {
-    let settled = false
-    const finish = () => {
-      if (settled) return
-      settled = true
-      resolve()
-    }
-
-    pc.onicecandidate = (event) => {
-      if (!event.candidate) return finish()
-      const match = event.candidate.candidate.match(/ typ (host|srflx|relay|prflx)/)
-      if (!match) return
-      const type = match[1] as CandidateType
-      counts[type] += 1
-      if (type === 'relay') {
-        relayProtocols.add(event.candidate.protocol || 'udp')
-      }
-    }
-    pc.onicegatheringstatechange = () => {
-      if (pc.iceGatheringState === 'complete') finish()
-    }
-    setTimeout(finish, GATHER_TIMEOUT_MS)
-  })
-
-  pc.close()
+  // Two probes. The baseline uses public STUN only, so it measures the network
+  // rather than the configuration: if it cannot get a server-reflexive
+  // candidate either, UDP is being blocked and no TURN setting will fix that.
+  const [baseline, full] = await Promise.all([
+    gather(BASELINE_STUN, 8000),
+    gather(data.iceServers ?? [], GATHER_TIMEOUT_MS),
+  ])
 
   const hasTurn = data.hasTurn ?? false
   const verdict: IceDiagnostics['verdict'] =
-    counts.relay > 0 ? 'ok' : hasTurn ? 'no-relay' : 'no-turn-configured'
+    full.counts.relay > 0
+      ? 'ok'
+      : !hasTurn
+      ? 'no-turn-configured'
+      : baseline.counts.srflx === 0
+      ? 'udp-blocked'
+      : 'turn-broken'
 
   return {
     provider: data.provider ?? 'unknown',
@@ -96,9 +123,10 @@ export async function runIceDiagnostics(): Promise<IceDiagnostics> {
       urls: s.urls,
       hasCredentials: !!s.username,
     })),
-    counts,
-    relayProtocols: Array.from(relayProtocols),
-    errors,
+    counts: full.counts,
+    relayProtocols: Array.from(full.relayProtocols),
+    errors: full.errors,
+    baselineSrflx: baseline.counts.srflx,
     durationMs: Date.now() - started,
     verdict,
   }

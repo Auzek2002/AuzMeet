@@ -39,10 +39,16 @@ export default function DiagnosticsPage() {
       body: 'A TURN relay candidate was obtained, so two people behind different routers can connect.',
       tone: 'border-emerald-400/30 bg-emerald-400/10',
     },
-    'no-relay': {
+    'turn-broken': {
       icon: <XCircle size={22} className="text-red-400" />,
       title: 'TURN is configured but not working',
-      body: 'The server was contacted but no relay candidate came back — usually wrong credentials, an expired key, or a blocked port. Check the errors below.',
+      body: 'This network can reach the internet fine, but the TURN server returned no relay candidate — usually wrong credentials, an expired key, or a blocked port. Check the errors below.',
+      tone: 'border-red-400/30 bg-red-400/10',
+    },
+    'udp-blocked': {
+      icon: <XCircle size={22} className="text-red-400" />,
+      title: 'This network is blocking the connection',
+      body: 'Not even a plain STUN lookup over public servers succeeded, so the problem is this network or a VPN rather than your TURN settings. A VPN, a corporate/school firewall, or strict security software will all do this. Try again with the VPN off, or from a phone hotspot.',
       tone: 'border-red-400/30 bg-red-400/10',
     },
     'no-turn-configured': {
@@ -126,6 +132,17 @@ export default function DiagnosticsPage() {
                   Relay protocols: {result.relayProtocols.join(', ')}
                 </p>
               )}
+              <p
+                className={clsx(
+                  'text-xs mt-2',
+                  result.baselineSrflx === 0 ? 'text-red-300' : 'text-muted'
+                )}
+              >
+                Network check (public STUN, ignoring your settings):{' '}
+                {result.baselineSrflx === 0
+                  ? 'no candidates — this network is blocking UDP, or a VPN is in the way'
+                  : `${result.baselineSrflx} candidate(s) — basic connectivity is fine`}
+              </p>
             </section>
 
             <section className="mb-6">
@@ -164,8 +181,10 @@ export default function DiagnosticsPage() {
                   ))}
                 </ul>
                 <p className="text-[11px] text-muted mt-2 leading-relaxed">
-                  701 means the server could not be reached at all. 400 or 401 mean it answered
-                  and rejected the credentials.
+                  701 means the server could not be reached at all — a blocked port, or no route
+                  from this network. 400 or 401 mean it answered and rejected the credentials.
+                  &ldquo;Address not associated with the desired network interface&rdquo; almost
+                  always means a VPN or virtual adapter is intercepting the traffic.
                 </p>
               </section>
             )}

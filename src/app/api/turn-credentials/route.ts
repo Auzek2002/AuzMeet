@@ -76,7 +76,7 @@ async function fromMeteredApi(): Promise<TurnResult | null> {
   }
 
   return {
-    iceServers: servers,
+    iceServers: [...STUN_ONLY, ...servers],
     provider: 'metered-api',
     hasTurn: servers.some((s) => String(s.urls).includes('turn')),
   }
@@ -92,11 +92,17 @@ function fromMeteredStatic(): TurnResult | null {
   const host = domain.replace(/^https?:\/\//, '')
   return {
     iceServers: [
-      { urls: `stun:${host}:3478` },
+      // Public STUN first: if the provider's own STUN is unreachable, this is
+      // what still yields a server-reflexive candidate. Without it a single
+      // bad STUN entry leaves the browser with host candidates only.
+      ...STUN_ONLY,
+      // Metered serves STUN on port 80, not 3478.
+      { urls: `stun:${host}:80` },
       { urls: `turn:${host}:80`, username, credential },
       { urls: `turn:${host}:80?transport=tcp`, username, credential },
       { urls: `turn:${host}:443`, username, credential },
-      // TLS on 443 is the one that survives restrictive corporate firewalls.
+      { urls: `turn:${host}:443?transport=tcp`, username, credential },
+      // TLS on 443 is the one that survives restrictive firewalls.
       { urls: `turns:${host}:443?transport=tcp`, username, credential },
     ],
     provider: 'metered-static',
@@ -158,7 +164,7 @@ async function fromTwilio(): Promise<TurnResult | null> {
   }))
   if (servers.length === 0) throw new Error('Twilio returned no ICE servers')
 
-  return { iceServers: servers, provider: 'twilio', hasTurn: true }
+  return { iceServers: [...STUN_ONLY, ...servers], provider: 'twilio', hasTurn: true }
 }
 
 export async function GET() {
