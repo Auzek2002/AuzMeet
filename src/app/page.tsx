@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -8,7 +8,6 @@ import {
   Video,
   Link2,
   ChevronRight,
-  Users,
   Zap,
   AlertCircle,
   Monitor,
@@ -72,6 +71,18 @@ const FEATURES = [
 
 export default function HomePage() {
   const router = useRouter()
+  // Rendered only after mount: the server and the browser can sit in different
+  // timezones, and a date baked into the HTML would mismatch on hydration.
+  const [today, setToday] = useState('')
+  useEffect(() => {
+    setToday(
+      new Date().toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      })
+    )
+  }, [])
   const [code, setCode] = useState('')
   const [codeError, setCodeError] = useState('')
 
@@ -115,20 +126,14 @@ export default function HomePage() {
             href="https://github.com/Auzek2002/AuzMeet"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.06] border border-white/[0.12] text-white/70 hover:text-white hover:bg-white/[0.10] transition-all text-sm font-medium"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.06] border border-white/[0.12] text-white/85 hover:text-white hover:bg-white/[0.10] transition-all text-sm font-medium"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0" aria-hidden="true">
               <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
             </svg>
             <span className="hidden sm:inline">Go to repo</span>
           </a>
-          <span className="text-white/25 text-sm hidden sm:block">
-            {new Date().toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </span>
+          <span className="text-white/60 text-sm hidden sm:block">{today}</span>
         </div>
         </div>
       </header>
@@ -162,7 +167,7 @@ export default function HomePage() {
           {/* ── Left: text + CTA ── */}
           <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.10] text-sm text-white/50 mb-5 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.10] text-sm text-white/70 mb-5 backdrop-blur-sm">
               <Sparkles size={13} className="text-purple-400" />
               Free · No sign-in required
             </div>
@@ -186,7 +191,7 @@ export default function HomePage() {
             </h1>
 
             {/* Subtitle */}
-            <p className="text-base sm:text-lg text-white/55 max-w-md mb-8 leading-relaxed font-medium">
+            <p className="text-base sm:text-lg text-white/70 max-w-md mb-8 leading-relaxed font-medium">
               Connect, collaborate, and celebrate from anywhere, with AuzMeet.
               Free video meetings with screen sharing and instant links.
             </p>
@@ -197,7 +202,7 @@ export default function HomePage() {
                 {/* New meeting */}
                 <button
                   onClick={handleNewMeeting}
-                  className="flex items-center justify-center gap-2.5 bg-gradient-to-r from-[#5227FF] to-[#7c3aed] hover:from-[#6d3dff] hover:to-[#9333ea] text-white rounded-2xl px-6 py-4 font-bold text-base transition-all duration-200 shadow-[0_0_40px_rgba(124,58,237,0.45)] hover:shadow-[0_0_60px_rgba(124,58,237,0.6)] hover:scale-[1.02] active:scale-[0.99] whitespace-nowrap flex-shrink-0"
+                  className="flex items-center justify-center gap-2.5 bg-gradient-to-r from-[#5227FF] to-[#7c3aed] hover:from-[#6d3dff] hover:to-[#9333ea] text-white rounded-2xl px-6 py-4 font-bold text-base transition-all duration-200 shadow-[0_0_40px_rgba(124,58,237,0.45)] hover:shadow-[0_0_60px_rgba(124,58,237,0.6)] hover:scale-[1.02] active:scale-[0.99] whitespace-nowrap flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#06060f]"
                 >
                   <Video size={18} />
                   New meeting
@@ -216,13 +221,14 @@ export default function HomePage() {
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
                       placeholder="Enter a code or link"
-                      className="outline-none bg-transparent text-white placeholder-white/35 text-sm font-medium w-full min-w-0"
+                      aria-label="Meeting code or link"
+                      className="outline-none bg-transparent text-white placeholder-white/50 text-sm font-medium w-full min-w-0"
                     />
                   </div>
                   <button
                     onClick={handleJoin}
                     disabled={!code.trim()}
-                    className="flex items-center gap-1 mr-2 px-4 py-2 rounded-xl bg-violet-600/80 hover:bg-violet-500 disabled:bg-white/[0.06] disabled:text-white/25 text-white font-semibold text-sm transition-all duration-150 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
+                    className="flex items-center gap-1 mr-2 px-4 py-2 rounded-xl bg-violet-600/80 hover:bg-violet-500 disabled:bg-white/[0.06] disabled:text-white/25 text-white font-semibold text-sm transition-all duration-150 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   >
                     Join
                     <ChevronRight size={14} />
@@ -230,13 +236,13 @@ export default function HomePage() {
                 </div>
               </div>
               {codeError && (
-                <p className="text-red-400 text-xs px-1 font-medium">{codeError}</p>
+                <p role="alert" className="text-red-300 text-xs px-1 font-medium">{codeError}</p>
               )}
             </div>
           </div>
 
           {/* ── Right: meeting preview card (desktop only) ── */}
-          <div className="hidden lg:block flex-shrink-0 w-full max-w-sm lg:max-w-md">
+          <div className="hidden lg:block flex-shrink-0 w-full max-w-sm lg:max-w-md" aria-hidden="true">
             {/* Outer glow ring */}
             <div className="relative">
               <div className="absolute -inset-1 rounded-3xl bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-pink-500/20 blur-xl" />
@@ -246,7 +252,7 @@ export default function HomePage() {
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
                   <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" />
                   <div className="w-2.5 h-2.5 rounded-full bg-green-500/70" />
-                  <span className="text-white/25 text-xs ml-2 font-mono">AuzMeet · live</span>
+                  <span className="text-white/60 text-xs ml-2 font-mono">AuzMeet · live</span>
                   {/* Live indicator */}
                   <div className="ml-auto flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
@@ -273,7 +279,7 @@ export default function HomePage() {
                       >
                         {p.name[0]}
                       </div>
-                      <span className="relative text-white/40 text-xs">{p.name}</span>
+                      <span className="relative text-white/60 text-xs">{p.name}</span>
                     </div>
                   ))}
                 </div>
@@ -302,7 +308,7 @@ export default function HomePage() {
         <div className="relative max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-3">Everything you need</h2>
-            <p className="text-white/35 text-base">
+            <p className="text-white/60 text-base">
               No downloads. No accounts. Just click and meet.
             </p>
           </div>
@@ -322,7 +328,7 @@ export default function HomePage() {
                   {f.icon}
                 </div>
                 <h3 className="relative font-semibold text-white mb-2 text-base">{f.title}</h3>
-                <p className="relative text-sm text-white/35 leading-relaxed">{f.desc}</p>
+                <p className="relative text-sm text-white/60 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -338,7 +344,7 @@ export default function HomePage() {
                 <div className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent mb-1">
                   {stat.value}
                 </div>
-                <div className="text-white/30 text-xs sm:text-sm">{stat.label}</div>
+                <div className="text-white/60 text-xs sm:text-sm">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -347,20 +353,28 @@ export default function HomePage() {
 
       {/* ── Footer ── */}
       <footer className="border-t border-white/[0.05] py-6 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/20">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/55">
           <div className="flex items-center gap-2">
-            <Image src="/AuzMeet_Logo.png" alt="AuzMeet" width={80} height={80} className="rounded-md" />
-            <span>© {new Date().getFullYear()} AuzMeet · Made by Azaan Nabi Khan</span>
+            <Image src="/AuzMeet_Logo.png" alt="" width={80} height={80} className="rounded-md w-5 h-5" />
+            <span>© AuzMeet · Made by Azaan Nabi Khan</span>
           </div>
           <div className="flex gap-5">
-            {['Privacy', 'Terms', 'About'].map((link) => (
-              <span
-                key={link}
-                className="hover:text-white/40 cursor-pointer transition-colors"
-              >
-                {link}
-              </span>
-            ))}
+            <a
+              href="https://github.com/Auzek2002/AuzMeet"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+            >
+              Source
+            </a>
+            <a
+              href="https://github.com/Auzek2002/AuzMeet/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+            >
+              Report an issue
+            </a>
           </div>
         </div>
       </footer>

@@ -86,3 +86,76 @@ html {
   top: 0;
   left: 0;
 }
+
+/* Toast entrance */
+.toast-enter {
+  animation: toastIn 0.18s ease-out;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Recording indicator pulse */
+.rec-pulse {
+  animation: recPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes recPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Video elements should never letterbox with a white backdrop */
+video {
+  background-color: #000;
+}
+
+/* Respect reduced-motion preferences for the decorative animations */
+@media (prefers-reduced-motion: reduce) {
+  .panel-enter,
+  .toast-enter,
+  .rec-pulse,
+  .speaking-indicator {
+    animation: none;
+  }
+}
+
+/* Mobile "more options" sheet */
+.sheet-enter {
+  animation: sheetUp 0.18s ease-out;
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* A visible keyboard focus ring everywhere, without showing it on mouse click */
+:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-enter {
+    animation: none;
+  }
+}

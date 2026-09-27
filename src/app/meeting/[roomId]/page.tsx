@@ -36,10 +36,10 @@ export default function MeetingPage() {
   // ── Loading ──────────────────────────────────────────────────────────────
   if (phase === 'loading' || !socket) {
     return (
-      <div className="min-h-screen bg-[#202124] flex items-center justify-center">
+      <div className="min-h-screen bg-app flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-2 border-[#8ab4f8] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[#9aa0a6] text-sm">Connecting…</p>
+          <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted text-sm">Connecting…</p>
         </div>
       </div>
     )
