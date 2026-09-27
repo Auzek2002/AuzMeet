@@ -1,0 +1,35 @@
+# Render blueprint for AuzMeet.
+#
+# Option A (simplest): one service running the whole app — Next.js and the
+# signaling server together. Deploy this and use the service URL directly;
+# NEXT_PUBLIC_SIGNALING_URL is not needed because both share an origin.
+#
+# Option B: keep the frontend on Vercel and deploy only `auzmeet-signaling`
+# below, then set NEXT_PUBLIC_SIGNALING_URL in Vercel to that service's URL.
+services:
+  - type: web
+    name: auzmeet
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MAX_PARTICIPANTS
+        value: "16"
+
+  - type: web
+    name: auzmeet-signaling
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run signaling
+    healthCheckPath: /health
+    envVars:
+      - key: MAX_PARTICIPANTS
+        value: "16"
+      # Lock this down to your real frontend origin in production.
+      - key: ALLOWED_ORIGINS
+        value: "*"

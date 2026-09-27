@@ -63,6 +63,12 @@ interface PeerConn {
   screenSenders: RTCRtpSender[]
 }
 
+/**
+ * 'unreachable' is terminal: the signaling server never answered, which in a
+ * deployment almost always means it is not running at all.
+ */
+export type SignalingStatus = 'connecting' | 'connected' | 'reconnecting' | 'unreachable'
+
 export interface JoinError {
   reason: 'room-full' | 'room-locked' | 'invalid-room'
   max?: number
@@ -95,6 +101,7 @@ export interface UseWebRTCReturn {
   wasKicked: boolean
   /** False while the signaling socket is down and trying to reconnect. */
   isConnected: boolean
+  signalingStatus: SignalingStatus
   joinError: JoinError | null
   screenShareError: string | null
   toggleAudio: () => void
@@ -161,6 +168,9 @@ export function useWebRTC({
   const [screenSurface, setScreenSurface] = useState<CaptureSurface>('unknown')
   const [selfId, setSelfId] = useState<string | null>(socket.id ?? null)
   const [isConnected, setIsConnected] = useState(socket.connected)
+  const [signalingStatus, setSignalingStatus] = useState<SignalingStatus>(
+    socket.connected ? 'connected' : 'connecting'
+  )
 
   const peerConnsRef = useRef<Map<string, PeerConn>>(new Map())
   const iceServersRef = useRef<RTCIceServer[]>(STUN_ONLY)
@@ -409,6 +419,7 @@ export function useWebRTC({
     const handleConnect = () => {
       setSelfId(socket.id ?? null)
       setIsConnected(true)
+      setSignalingStatus('connected')
       if (!hasJoined) return
       closeAllPeers()
       join()
@@ -549,10 +560,32 @@ export function useWebRTC({
 
     // Losing the signaling socket does not drop existing media, but nobody
     // can join or leave until it is back — the UI should say so.
-    const handleDisconnect = () => setIsConnected(false)
+    const handleDisconnect = () => {
+      setIsConnected(false)
+      setSignalingStatus('reconnecting')
+    }
+
+    // Every attempt failed. Retrying forever just leaves a spinner on screen,
+    // so surface it as a real error with something actionable.
+    const handleReconnectFailed = () => {
+      setIsConnected(false)
+      setSignalingStatus('unreachable')
+    }
+
+    // The very first connection never landing is the same situation.
+    let failedAttempts = 0
+    const handleConnectError = () => {
+      failedAttempts += 1
+      setIsConnected(false)
+      setSignalingStatus((current) =>
+        current === 'unreachable' ? current : failedAttempts >= 4 ? 'unreachable' : 'reconnecting'
+      )
+    }
 
     socket.on('connect', handleConnect)
     socket.on('disconnect', handleDisconnect)
+    socket.on('connect_error', handleConnectError)
+    socket.io.on('reconnect_failed', handleReconnectFailed)
     socket.on('room-users', handleRoomUsers)
     socket.on('user-joined', handleUserJoined)
     socket.on('signal', handleSignal)
@@ -588,6 +621,8 @@ export function useWebRTC({
       cancelled = true
       socket.off('connect', handleConnect)
       socket.off('disconnect', handleDisconnect)
+      socket.off('connect_error', handleConnectError)
+      socket.io.off('reconnect_failed', handleReconnectFailed)
       socket.off('room-users', handleRoomUsers)
       socket.off('user-joined', handleUserJoined)
       socket.off('signal', handleSignal)
@@ -953,6 +988,7 @@ export function useWebRTC({
     maxParticipants,
     wasKicked,
     isConnected,
+    signalingStatus,
     joinError,
     screenShareError,
     toggleAudio,

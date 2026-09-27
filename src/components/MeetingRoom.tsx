@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Socket } from 'socket.io-client'
-import { Copy, Check, Users } from 'lucide-react'
+import { Check, Copy, Users, X } from 'lucide-react'
 import { LayoutMode, RecordingMode, Tile, Toast, ToastKind } from '@/types'
 import { FrameSource } from '@/lib/recording'
 import { surfaceDescription } from '@/lib/displayCapture'
+import { SIGNALING_URL, isServerlessHost } from '@/lib/socket'
 import { useWebRTC } from '@/hooks/useWebRTC'
 import { useAudioLevels } from '@/hooks/useAudioLevels'
 import { useRecorder } from '@/hooks/useRecorder'
@@ -43,6 +44,9 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
   const [readMessageCount, setReadMessageCount] = useState(0)
   const [isLeaving, setIsLeaving] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  // Dismissing the invite card keeps it gone for the rest of the meeting,
+  // including if everyone leaves and you end up alone again.
+  const [inviteDismissed, setInviteDismissed] = useState(false)
 
   // ── Toasts ───────────────────────────────────────────────────────────────
   const notify = useCallback((kind: ToastKind, message: string) => {
@@ -73,6 +77,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
     maxParticipants,
     wasKicked,
     isConnected,
+    signalingStatus,
     joinError,
     screenShareError,
     toggleAudio,
@@ -362,6 +367,10 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
     setActivePanel((prev) => (prev === panel ? null : panel))
   }, [])
 
+  // Mirrors activePanel for event handlers that must read it synchronously.
+  const activePanelRef = useRef(activePanel)
+  activePanelRef.current = activePanel
+
   // Chat badge clears while the chat is open.
   useEffect(() => {
     if (activePanel === 'chat') setReadMessageCount(messages.length)
@@ -410,9 +419,12 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
         return
       }
 
-      // Escape backs out of whatever panel is open.
+      // Escape backs out of whatever is open: the panel first, then the card.
+      // The panel is read from a ref because a setState updater does not run
+      // synchronously, so its result cannot decide what else to close here.
       if (event.key === 'Escape') {
-        setActivePanel((current) => (current ? null : current))
+        if (activePanelRef.current) setActivePanel(null)
+        else setInviteDismissed(true)
         return
       }
 
@@ -453,6 +465,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
   // ── Derived display values ───────────────────────────────────────────────
   const participantCount = peers.size + 1
   const someoneIsSharing = tiles.some((tile) => tile.kind === 'screen')
+  const showInviteCard = participantCount === 1 && !someoneIsSharing && !inviteDismissed
 
   const recordingBy = useMemo(() => {
     const names: string[] = []
@@ -492,13 +505,41 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
 
       {/* Signaling is down: media already flowing keeps going, but the roster
           is frozen until it returns. */}
-      {!isConnected && (
+      {signalingStatus === 'reconnecting' && (
         <div
           role="status"
           className="flex-shrink-0 flex items-center justify-center gap-2 bg-amber-500/15 border-b border-amber-500/30 px-4 py-1.5 text-amber-200 text-xs font-medium"
         >
           <span className="w-3 h-3 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
           Reconnecting… people cannot join or leave until the connection is back.
+        </div>
+      )}
+
+      {/* Terminal: the signaling server never answered. Retrying forever would
+          just spin, so say what is wrong and what to do about it. */}
+      {signalingStatus === 'unreachable' && (
+        <div
+          role="alert"
+          className="flex-shrink-0 bg-danger/15 border-b border-danger/40 px-4 py-2.5 text-red-200 text-xs"
+        >
+          <p className="font-semibold mb-0.5">Can&apos;t reach the meeting server.</p>
+          <p className="text-red-200/85 leading-relaxed">
+            {isServerlessHost() && !SIGNALING_URL ? (
+              <>
+                This site is hosted on a serverless platform, which cannot run the
+                signaling server — it needs a process that stays alive. Deploy{' '}
+                <code className="font-mono">signaling-server.js</code> somewhere persistent and
+                set <code className="font-mono">NEXT_PUBLIC_SIGNALING_URL</code>. See
+                DEPLOYMENT.md.
+              </>
+            ) : (
+              <>
+                The signaling server at{' '}
+                <code className="font-mono">{SIGNALING_URL || 'this site'}</code> did not
+                respond. Check that it is running and reachable, then reload.
+              </>
+            )}
+          </p>
         </div>
       )}
 
@@ -530,10 +571,22 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
           />
 
           {/* Gentle nudge to invite people while alone in the room */}
-          {participantCount === 1 && !someoneIsSharing && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(92vw,22rem)] bg-surface/95 backdrop-blur border border-line rounded-xl px-4 py-3 shadow-2xl">
-              <p className="text-white text-sm font-medium flex items-center gap-2">
-                <Users size={14} className="text-accent" />
+          {showInviteCard && (
+            <div
+              aria-label="Invite people to this meeting"
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(92vw,22rem)] bg-surface/95 backdrop-blur border border-line rounded-xl px-4 py-3 shadow-2xl"
+            >
+              <button
+                onClick={() => setInviteDismissed(true)}
+                title="Dismiss"
+                aria-label="Dismiss invite prompt"
+                className="absolute top-2 right-2 text-muted hover:text-white hover:bg-elevated rounded-md p-1 transition-colors touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <X size={14} />
+              </button>
+
+              <p className="text-white text-sm font-medium flex items-center gap-2 pr-6">
+                <Users size={14} className="text-accent flex-shrink-0" />
                 You are the only one here
               </p>
               <p className="text-muted text-xs mt-1 mb-2.5 leading-relaxed">
@@ -541,11 +594,14 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
               </p>
               <button
                 onClick={copyInvite}
-                className="w-full flex items-center justify-center gap-1.5 bg-accent-strong hover:bg-accent-strong-hover text-white text-xs font-semibold rounded-full py-2 transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 bg-accent-strong hover:bg-accent-strong-hover text-white text-xs font-semibold rounded-full py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {linkCopied ? <Check size={13} /> : <Copy size={13} />}
                 {linkCopied ? 'Link copied' : 'Copy meeting link'}
               </button>
+              <p className="text-subtle text-[11px] text-center mt-1.5">
+                You can always copy it again from Meeting details.
+              </p>
             </div>
           )}
         </div>
