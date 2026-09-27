@@ -61,6 +61,13 @@ interface PeerConn {
   camAudioSender: RTCRtpSender | null
   camVideoSender: RTCRtpSender | null
   screenSenders: RTCRtpSender[]
+  /**
+   * Candidates that arrived before a remote description existed. Adding one
+   * then throws InvalidStateError, so they are held here and flushed as soon
+   * as the description lands. More ICE servers means more candidates in
+   * flight, which makes this race routine rather than rare.
+   */
+  pendingCandidates: RTCIceCandidateInit[]
 }
 
 /**
@@ -252,6 +259,7 @@ export function useWebRTC({
         camAudioSender: null,
         camVideoSender: null,
         screenSenders: [],
+        pendingCandidates: [],
       }
 
       // Camera and microphone go on with addTrack, which lets the answering
@@ -497,11 +505,29 @@ export function useWebRTC({
           await pc.setRemoteDescription(description)
           conn.isSettingRemoteAnswerPending = false
 
+          // Anything that arrived early can be applied now.
+          if (conn.pendingCandidates.length > 0) {
+            const queued = conn.pendingCandidates
+            conn.pendingCandidates = []
+            for (const pending of queued) {
+              try {
+                await pc.addIceCandidate(pending)
+              } catch (err) {
+                if (!conn.ignoreOffer) console.warn('[WebRTC] stale candidate dropped:', err)
+              }
+            }
+          }
+
           if (description.type === 'offer') {
             await pc.setLocalDescription()
             socket.emit('signal', { target: from, description: pc.localDescription })
           }
         } else if (candidate) {
+          // Hold candidates until there is something to attach them to.
+          if (!pc.remoteDescription) {
+            conn.pendingCandidates.push(candidate)
+            return
+          }
           try {
             await pc.addIceCandidate(candidate)
           } catch (err) {

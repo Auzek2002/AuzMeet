@@ -82,31 +82,48 @@ async function fromMeteredApi(): Promise<TurnResult | null> {
   }
 }
 
-/** Metered, using the static username/password from the dashboard. */
+/**
+ * Metered, using the static username/password from the dashboard.
+ *
+ * Note which hostname is which — getting this wrong looks exactly like broken
+ * credentials. `<yourapp>.metered.live` is the **API** host (an HTTP CDN, used
+ * only to mint credentials); the TURN relays live on `*.relay.metered.ca`.
+ * Pointing TURN at the API host resolves and even accepts a TCP connection,
+ * then fails every allocation, because it speaks HTTP rather than TURN.
+ */
+const DEFAULT_METERED_RELAY = 'global.relay.metered.ca'
+
 function fromMeteredStatic(): TurnResult | null {
-  const domain = env('METERED_DOMAIN')
   const username = env('METERED_TURN_USERNAME')
   const credential = env('METERED_TURN_CREDENTIAL')
-  if (!domain || !username || !credential) return null
+  if (!username || !credential) return null
 
-  const host = domain.replace(/^https?:\/\//, '')
+  const configured = env('METERED_TURN_HOST')
+  const host = (configured || DEFAULT_METERED_RELAY).replace(/^https?:\/\//, '')
+
+  // A relay host ending in .metered.live is the API domain, which cannot serve
+  // TURN. Fall back to the real relay rather than silently failing.
+  const looksLikeApiHost = /\.metered\.live$/i.test(host)
+  const relayHost = looksLikeApiHost ? DEFAULT_METERED_RELAY : host
+
   return {
     iceServers: [
-      // Public STUN first: if the provider's own STUN is unreachable, this is
-      // what still yields a server-reflexive candidate. Without it a single
-      // bad STUN entry leaves the browser with host candidates only.
       ...STUN_ONLY,
-      // Metered serves STUN on port 80, not 3478.
-      { urls: `stun:${host}:80` },
-      { urls: `turn:${host}:80`, username, credential },
-      { urls: `turn:${host}:80?transport=tcp`, username, credential },
-      { urls: `turn:${host}:443`, username, credential },
-      { urls: `turn:${host}:443?transport=tcp`, username, credential },
+      { urls: 'stun:stun.relay.metered.ca:80' },
+      { urls: `turn:${relayHost}:80`, username, credential },
+      { urls: `turn:${relayHost}:80?transport=tcp`, username, credential },
+      { urls: `turn:${relayHost}:443`, username, credential },
+      { urls: `turn:${relayHost}:443?transport=tcp`, username, credential },
       // TLS on 443 is the one that survives restrictive firewalls.
-      { urls: `turns:${host}:443?transport=tcp`, username, credential },
+      { urls: `turns:${relayHost}:443?transport=tcp`, username, credential },
     ],
     provider: 'metered-static',
     hasTurn: true,
+    warning: looksLikeApiHost
+      ? `METERED_TURN_HOST was set to "${host}", which is Metered's API domain and cannot ` +
+        `serve TURN. Using ${DEFAULT_METERED_RELAY} instead — copy the exact relay hostname ` +
+        `from your Metered dashboard if that is not right.`
+      : undefined,
   }
 }
 

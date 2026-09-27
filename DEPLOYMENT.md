@@ -80,7 +80,9 @@ the connection as mixed content.
 | `ALLOWED_ORIGINS` | signaling server | Comma-separated allowed origins. `*` by default. |
 | `MAX_PARTICIPANTS` | signaling server | Room capacity, default 16. |
 | `PORT` / `HOST` | both | Listen address. Hosts normally inject `PORT`. |
-| `METERED_DOMAIN`, `METERED_TURN_USERNAME`, `METERED_TURN_CREDENTIAL` | web app (runtime) | TURN credentials — see below. |
+| `METERED_API_KEY` + `METERED_DOMAIN` | web app (runtime) | Metered, credentials minted per call (preferred). |
+| `METERED_TURN_USERNAME`, `METERED_TURN_CREDENTIAL` | web app (runtime) | Metered static credentials. |
+| `METERED_TURN_HOST` | web app (runtime) | Relay hostname; defaults to `global.relay.metered.ca`. |
 
 ## TURN — required for calls between different networks
 
@@ -119,18 +121,35 @@ request time by `/api/turn-credentials`.
 
 **Metered** (simplest; free tier is generous)
 
-1. Sign up at <https://dashboard.metered.ca/>, create a TURN app.
-2. Set either the API key (credentials are minted per call, preferred):
-   ```
-   METERED_DOMAIN  = yourapp.metered.live
-   METERED_API_KEY = <your api key>
-   ```
-   or the static pair from the dashboard:
-   ```
-   METERED_DOMAIN           = yourapp.metered.live
-   METERED_TURN_USERNAME    = <username>
-   METERED_TURN_CREDENTIAL  = <password>
-   ```
+Metered uses **two different hostnames**, and mixing them up is the single
+easiest way to get a config that looks correct and never connects:
+
+| Hostname | What it is |
+| --- | --- |
+| `<yourapp>.metered.live` | the **API**, used only to mint credentials. An HTTP CDN — it does not speak TURN. |
+| `global.relay.metered.ca` | the **TURN relays** themselves. |
+
+Pointing TURN at the API host resolves fine and even accepts a TCP connection,
+then fails every allocation with `701 Failed to establish connection`.
+
+*Preferred — API key.* Credentials are minted per call and the server list comes
+straight from Metered, so there is no hostname to get wrong:
+
+```
+METERED_DOMAIN  = yourapp.metered.live
+METERED_API_KEY = <your api key>
+```
+
+*Or static credentials* from the dashboard's TURN Credentials page:
+
+```
+METERED_TURN_USERNAME   = <username>
+METERED_TURN_CREDENTIAL = <password>
+```
+
+The relay host defaults to `global.relay.metered.ca`. Only set
+`METERED_TURN_HOST` if your dashboard shows a different one (a region-specific
+relay, say). `METERED_DOMAIN` is **not** used for TURN.
 
 **Cloudflare Calls**
 
@@ -166,6 +185,10 @@ The **ICE errors** list on that page tells you which:
 
 - `701 ... host lookup received error` — the hostname does not resolve. Check
   the domain for typos.
+- `701 Failed to establish connection` on **every** URL while the network check
+  passes — the hostname resolves and accepts connections but is not a TURN
+  server. On Metered this means TURN is pointed at `<app>.metered.live` instead
+  of `global.relay.metered.ca`.
 - `400` / `401` — the server answered and rejected the credentials. They are
   wrong, expired, or belong to a different app.
 - `701 Failed to establish connection` on a TCP/TLS URL — that port is blocked
