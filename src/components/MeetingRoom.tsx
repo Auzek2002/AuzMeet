@@ -78,6 +78,9 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
     wasKicked,
     isConnected,
     signalingStatus,
+    hasTurn,
+    relayWarning,
+    hadIceFailure,
     joinError,
     screenShareError,
     toggleAudio,
@@ -298,6 +301,18 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
   useEffect(() => {
     if (screenShareError) notify('error', screenShareError)
   }, [screenShareError, notify])
+
+  // Without a relay a call silently fails between networks, so say so the
+  // moment a second person arrives rather than letting them stare at a spinner.
+  const warnedNoTurnRef = useRef(false)
+  useEffect(() => {
+    if (hasTurn || peers.size === 0 || warnedNoTurnRef.current) return
+    warnedNoTurnRef.current = true
+    notify(
+      'warning',
+      'No TURN server is configured. People on other networks may not connect.'
+    )
+  }, [hasTurn, peers.size, notify])
 
   // Say plainly what the picked surface exposes — "entire screen" and "one tab"
   // behave very differently once the user starts moving between tabs.
@@ -540,6 +555,23 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
               </>
             )}
           </p>
+        </div>
+      )}
+
+      {/* A peer connection failed outright. Almost always a missing relay. */}
+      {hadIceFailure && (
+        <div
+          role="alert"
+          className="flex-shrink-0 bg-danger/15 border-b border-danger/40 px-4 py-2 text-red-200 text-xs"
+        >
+          <span className="font-semibold">Could not connect to someone in this meeting.</span>{' '}
+          {hasTurn
+            ? 'The network path between you was blocked. Re-joining sometimes helps.'
+            : 'This server has no TURN relay, which is required when people are on different networks.'}{' '}
+          <a href="/diagnostics" target="_blank" rel="noopener noreferrer" className="underline">
+            Run the connection test
+          </a>
+          .
         </div>
       )}
 

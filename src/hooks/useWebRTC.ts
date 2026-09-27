@@ -102,6 +102,11 @@ export interface UseWebRTCReturn {
   /** False while the signaling socket is down and trying to reconnect. */
   isConnected: boolean
   signalingStatus: SignalingStatus
+  /** False when no TURN relay is available from the server. */
+  hasTurn: boolean
+  relayWarning: string | null
+  /** True once any peer connection has failed outright. */
+  hadIceFailure: boolean
   joinError: JoinError | null
   screenShareError: string | null
   toggleAudio: () => void
@@ -163,11 +168,16 @@ export function useWebRTC({
   const [isLocked, setIsLocked] = useState(false)
   const [maxParticipants, setMaxParticipants] = useState(16)
   const [wasKicked, setWasKicked] = useState(false)
+  const [hadIceFailure, setHadIceFailure] = useState(false)
   const [joinError, setJoinError] = useState<JoinError | null>(null)
   const [screenShareError, setScreenShareError] = useState<string | null>(null)
   const [screenSurface, setScreenSurface] = useState<CaptureSurface>('unknown')
   const [selfId, setSelfId] = useState<string | null>(socket.id ?? null)
   const [isConnected, setIsConnected] = useState(socket.connected)
+  // False when the server has no TURN relay: calls then only work between
+  // people on the same network.
+  const [hasTurn, setHasTurn] = useState(true)
+  const [relayWarning, setRelayWarning] = useState<string | null>(null)
   const [signalingStatus, setSignalingStatus] = useState<SignalingStatus>(
     socket.connected ? 'connected' : 'connecting'
   )
@@ -322,6 +332,7 @@ export function useWebRTC({
       }
 
       pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed') setHadIceFailure(true)
         patchPeer(remoteId, {
           connectionState: pc.connectionState,
           quality:
@@ -609,6 +620,10 @@ export function useWebRTC({
         const data = await res.json()
         if (!cancelled && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
           iceServersRef.current = data.iceServers
+          if (data.hasTurn === false) {
+            setHasTurn(false)
+            setRelayWarning(data.warning ?? null)
+          }
         }
       } catch (err) {
         console.warn('[TURN] falling back to STUN only:', err)
@@ -989,6 +1004,9 @@ export function useWebRTC({
     wasKicked,
     isConnected,
     signalingStatus,
+    hasTurn,
+    relayWarning,
+    hadIceFailure,
     joinError,
     screenShareError,
     toggleAudio,

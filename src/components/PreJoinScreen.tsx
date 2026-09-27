@@ -25,8 +25,26 @@ export function PreJoinScreen({ roomId, onJoin }: PreJoinScreenProps) {
   const [cameraId, setCameraId] = useState('')
   const [micId, setMicId] = useState('')
   const [micLevel, setMicLevel] = useState(0)
+  const [noRelay, setNoRelay] = useState(false)
 
   const devices = useMediaDevices(hasStream)
+
+  // Check for a relay up front: it is the difference between a call that works
+  // for everyone and one that only works on your own network.
+  useEffect(() => {
+    let active = true
+    fetch('/api/turn-credentials')
+      .then((res) => res.json())
+      .then((data) => {
+        if (active && data?.hasTurn === false) setNoRelay(true)
+      })
+      .catch(() => {
+        /* the meeting will surface connection problems on its own */
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Remember the name between meetings.
   useEffect(() => {
@@ -364,6 +382,20 @@ export function PreJoinScreen({ roomId, onJoin }: PreJoinScreenProps) {
           <p className="text-muted text-xs text-center">
             Meeting code: <span className="text-accent font-mono">{roomId}</span>
           </p>
+
+          {noRelay && (
+            <p className="flex items-start gap-1.5 text-amber-300 text-[11px] leading-relaxed text-left">
+              <TriangleAlert size={12} className="flex-shrink-0 mt-0.5" />
+              <span>
+                No TURN relay is configured on this server, so people on other networks may not
+                be able to connect.{' '}
+                <a href="/diagnostics" target="_blank" rel="noopener noreferrer" className="underline">
+                  Test the connection
+                </a>
+                .
+              </span>
+            </p>
+          )}
         </div>
       </div>
     </div>

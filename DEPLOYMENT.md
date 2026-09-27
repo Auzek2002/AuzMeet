@@ -82,16 +82,95 @@ the connection as mixed content.
 | `PORT` / `HOST` | both | Listen address. Hosts normally inject `PORT`. |
 | `METERED_DOMAIN`, `METERED_TURN_USERNAME`, `METERED_TURN_CREDENTIAL` | web app (runtime) | TURN credentials — see below. |
 
-## Set up TURN before you call it done
+## TURN — required for calls between different networks
 
-Your logs show `[TURN] Metered env vars not set — falling back to OpenRelay`.
-The fallback is a free shared service and is regularly unreachable; when it is,
-anyone behind a strict NAT or corporate firewall connects to the room but never
-receives video.
+**If a call works on your own wifi but everyone shows "Connecting…" when a
+friend joins from elsewhere, this is why.**
 
-Create a free TURN project (e.g. Metered), then set `METERED_DOMAIN`,
-`METERED_TURN_USERNAME` and `METERED_TURN_CREDENTIAL` on the **web app**
-(they are read at runtime by `/api/turn-credentials`, so no rebuild is needed).
+WebRTC tries three kinds of network path:
+
+| Candidate | Works when |
+| --- | --- |
+| `host` | both people are on the same network |
+| `srflx` (STUN) | at least one side's router accepts an inbound connection |
+| `relay` (TURN) | always — traffic is relayed through a server |
+
+Most home routers and every mobile network use NAT that refuses unsolicited
+inbound connections. When both sides are like that, only a **TURN relay** can
+connect them. STUN is not enough, and STUN is free while TURN costs bandwidth —
+which is why there is no usable free public one.
+
+The old code fell back to the public `openrelay.metered.ca` credentials. Those
+no longer work: the server answers and rejects them with
+`400 TURN allocate error`, so zero relay candidates are produced. That fallback
+has been removed, because appearing configured while being broken is worse than
+being clearly unconfigured.
+
+### Check what your deployment is doing
+
+Open **`/diagnostics`** on your deployed site. It gathers real ICE candidates
+and tells you plainly whether a relay was obtained. Do this first — it answers
+the question in about five seconds, without arranging a two-person call.
+
+### Configure one of these
+
+Set the variables on the **web app** service and redeploy. They are read at
+request time by `/api/turn-credentials`.
+
+**Metered** (simplest; free tier is generous)
+
+1. Sign up at <https://dashboard.metered.ca/>, create a TURN app.
+2. Set either the API key (credentials are minted per call, preferred):
+   ```
+   METERED_DOMAIN  = yourapp.metered.live
+   METERED_API_KEY = <your api key>
+   ```
+   or the static pair from the dashboard:
+   ```
+   METERED_DOMAIN           = yourapp.metered.live
+   METERED_TURN_USERNAME    = <username>
+   METERED_TURN_CREDENTIAL  = <password>
+   ```
+
+**Cloudflare Calls**
+
+```
+CLOUDFLARE_TURN_KEY_ID     = <key id>
+CLOUDFLARE_TURN_API_TOKEN  = <api token>
+```
+
+**Twilio**
+
+```
+TWILIO_ACCOUNT_SID = <sid>
+TWILIO_AUTH_TOKEN  = <auth token>
+```
+
+**Your own coturn, or any other provider**
+
+```
+TURN_URLS       = turns:turn.example.com:443?transport=tcp,turn:turn.example.com:3478
+TURN_USERNAME   = <username>
+TURN_CREDENTIAL = <password>
+```
+
+### Setting them on Render
+
+Dashboard → your service → **Environment** → *Add Environment Variable* → Save.
+Render redeploys automatically. Then reload `/diagnostics`; the Relay count
+should be 1 or more and the verdict should turn green.
+
+### If /diagnostics still shows 0 relay
+
+The **ICE errors** list on that page tells you which:
+
+- `701 ... host lookup received error` — the hostname does not resolve. Check
+  the domain for typos.
+- `400` / `401` — the server answered and rejected the credentials. They are
+  wrong, expired, or belong to a different app.
+- `701 Failed to establish connection` on a TCP/TLS URL — that port is blocked
+  on the network you are testing from. Keep a `turns:…:443?transport=tcp` entry,
+  since 443 is the port most likely to be allowed through.
 
 ## Scaling note
 
@@ -103,7 +182,11 @@ multi-instance means adding a Socket.IO Redis adapter and sharing room state.
 ## Verifying a deployment
 
 1. `https://<signaling-host>/health` returns `{"status":"ok"}`.
-2. Open the meeting link in two browsers — each should see the other.
-3. If the banner says **"Can't reach the meeting server"**, the signaling
-   server is not running or is not reachable from the browser; the message says
-   which URL it tried.
+2. `https://<your-site>/diagnostics` reports **"Calls will work across
+   networks"** with a Relay count of 1 or more.
+3. Open the meeting link in two browsers — each should see the other.
+4. Test with someone on a different network (mobile data is an easy check).
+   If they stay on "Connecting…", go back to step 2: it is TURN.
+
+If the banner says **"Can't reach the meeting server"**, the signaling server is
+not running or is unreachable; the message names the URL it tried.

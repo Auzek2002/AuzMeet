@@ -65,7 +65,7 @@ const FEATURES = [
     icon: <Zap size={20} className="text-indigo-400" />,
     iconBg: 'bg-indigo-500/10 ring-1 ring-indigo-500/20',
     title: 'Instant Links',
-    desc: 'Create a meeting in one click and share the link — no sign-in needed.',
+    desc: 'Create a meeting in one click and share the link no sign-in needed.',
   },
 ]
 

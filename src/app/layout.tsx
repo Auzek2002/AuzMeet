@@ -5,12 +5,12 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AuzMeet — Video calls for everyone',
+  title: 'AuzMeet - Video calls for everyone',
   description:
     'Free group video meetings with screen sharing and in-browser recording. No downloads, no account.',
   applicationName: 'AuzMeet',
   openGraph: {
-    title: 'AuzMeet — Video calls for everyone',
+    title: 'AuzMeet - Video calls for everyone',
     description:
       'Free group video meetings with screen sharing and in-browser recording. No downloads, no account.',
     type: 'website',
