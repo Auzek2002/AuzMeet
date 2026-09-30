@@ -12,6 +12,7 @@ import { useWebRTC } from '@/hooks/useWebRTC'
 import { useAudioLevels } from '@/hooks/useAudioLevels'
 import { useRecorder } from '@/hooks/useRecorder'
 import { useMediaDevices } from '@/hooks/useMediaDevices'
+import { useTranscription } from '@/hooks/useTranscription'
 import { MeetingStage } from './MeetingStage'
 import { ControlBar, SidePanel } from './ControlBar'
 import { TopBar } from './TopBar'
@@ -19,6 +20,7 @@ import { ParticipantsPanel } from './ParticipantsPanel'
 import { ChatPanel } from './ChatPanel'
 import { InfoPanel } from './InfoPanel'
 import { RecordingsPanel } from './RecordingsPanel'
+import { NotesPanel } from './NotesPanel'
 import { PeerAudio } from './PeerAudio'
 import { Toasts } from './Toasts'
 
@@ -71,6 +73,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
     screenSurface,
     isHandRaised,
     messages,
+    transcript,
     isOwner,
     ownerId,
     isLocked,
@@ -99,6 +102,14 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
   } = useWebRTC({ roomId, socket, userName, initialStream, onNotice: notify })
 
   const devices = useMediaDevices(true)
+
+  // Live note capture: each person transcribes their own microphone, and the
+  // finished lines are shared with the room through the signaling socket.
+  const transcription = useTranscription({
+    socket,
+    isAudioEnabled,
+    onNotice: notify,
+  })
 
   // ── Tiles ────────────────────────────────────────────────────────────────
   // A participant who is presenting contributes two tiles, so their camera and
@@ -301,6 +312,14 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
   useEffect(() => {
     if (screenShareError) notify('error', screenShareError)
   }, [screenShareError, notify])
+
+  const othersTranscribing = useMemo(
+    () =>
+      Array.from(peers.values())
+        .filter((peer) => peer.isTranscribing)
+        .map((peer) => peer.name),
+    [peers]
+  )
 
   // Without a relay a call silently fails between networks, so say so the
   // moment a second person arrives rather than letting them stare at a spinner.
@@ -691,6 +710,18 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
                   onClose={() => setActivePanel(null)}
                 />
               )}
+              {activePanel === 'notes' && (
+                <NotesPanel
+                  roomId={roomId}
+                  entries={transcript}
+                  interim={transcription.interim}
+                  supported={transcription.supported}
+                  isTranscribing={transcription.isTranscribing}
+                  onToggleTranscription={transcription.toggle}
+                  othersTranscribing={othersTranscribing}
+                  onClose={() => setActivePanel(null)}
+                />
+              )}
               {activePanel === 'recordings' && (
                 <RecordingsPanel
                   recordings={recorder.recordings}
@@ -743,6 +774,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
         onTogglePanel={togglePanel}
         participantCount={participantCount}
         unreadCount={unreadCount}
+        isTranscribing={transcription.isTranscribing}
       />
     </div>
   )

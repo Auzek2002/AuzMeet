@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Mic, MicOff, TriangleAlert, Video, VideoOff } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useMediaDevices } from '@/hooks/useMediaDevices'
+import { CAMERA_CONSTRAINTS } from '@/hooks/useWebRTC'
 
 interface PreJoinScreenProps {
   roomId: string
@@ -73,7 +74,10 @@ export function PreJoinScreen({ roomId, onJoin }: PreJoinScreenProps) {
 
     const getMedia = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: CAMERA_CONSTRAINTS,
+          audio: true,
+        })
         if (!active) {
           stream.getTracks().forEach((track) => track.stop())
           return
@@ -166,7 +170,7 @@ export function PreJoinScreen({ roomId, onJoin }: PreJoinScreenProps) {
       try {
         const replacement = await navigator.mediaDevices.getUserMedia(
           kind === 'video'
-            ? { video: { deviceId: { exact: deviceId } } }
+            ? { video: { deviceId: { exact: deviceId }, ...CAMERA_CONSTRAINTS } }
             : { audio: { deviceId: { exact: deviceId } } }
         )
         const newTrack = kind === 'video' ? replacement.getVideoTracks()[0] : replacement.getAudioTracks()[0]

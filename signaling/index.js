@@ -28,6 +28,7 @@ function attachSignaling(io) {
     isHandRaised: u.isHandRaised,
     isScreenSharing: u.isScreenSharing,
     isRecording: u.isRecording,
+    isTranscribing: u.isTranscribing,
     // Lets peers tell a presented screen apart from a camera as soon as its
     // tracks arrive, however long before or after the share begins.
     screenStreamId: u.screenStreamId,
@@ -121,6 +122,7 @@ function attachSignaling(io) {
         isHandRaised: false,
         isScreenSharing: false,
         isRecording: false,
+        isTranscribing: false,
         screenStreamId: typeof screenStreamId === 'string' ? screenStreamId : null,
         joinedAt: new Date().toISOString(),
       }
@@ -231,6 +233,46 @@ function attachSignaling(io) {
           next
             ? `${user.name} started recording this meeting`
             : `${user.name} stopped recording`
+        )
+      }
+    })
+
+    // -- Live transcription -------------------------------------------------
+    // Each client transcribes its own microphone and sends finished lines here;
+    // the server only attributes and fans them out.
+    socket.on('transcript', ({ text }) => {
+      const user = users.get(socket.id)
+      if (!user || typeof text !== 'string') return
+      const clean = text.trim().slice(0, 1000)
+      if (!clean) return
+
+      io.to(user.roomId).emit('transcript', {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        speakerId: socket.id,
+        speakerName: user.name,
+        text: clean,
+        timestamp: new Date().toISOString(),
+      })
+    })
+
+    // Everyone is told when someone turns note-taking on, the same way
+    // recording is announced - speech is sent to a transcription service.
+    socket.on('transcription-state', ({ isTranscribing }) => {
+      const user = users.get(socket.id)
+      if (!user) return
+      const next = !!isTranscribing
+      const changed = user.isTranscribing !== next
+      user.isTranscribing = next
+      socket.to(user.roomId).emit('user-transcribing', {
+        socketId: socket.id,
+        isTranscribing: next,
+      })
+      if (changed) {
+        systemMessage(
+          user.roomId,
+          next
+            ? `${user.name} turned on live notes`
+            : `${user.name} turned off live notes`
         )
       }
     })

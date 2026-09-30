@@ -7,6 +7,7 @@ import {
   Circle,
   Disc,
   Hand,
+  FileText,
   Info,
   MessageSquare,
   Mic,
@@ -26,7 +27,7 @@ import { clsx } from 'clsx'
 import { DeviceOption, RecordingMode } from '@/types'
 import { formatDuration } from '@/lib/recording'
 
-export type SidePanel = 'participants' | 'chat' | 'info' | 'recordings' | null
+export type SidePanel = 'participants' | 'chat' | 'info' | 'recordings' | 'notes' | null
 
 interface ControlBarProps {
   isAudioEnabled: boolean
@@ -61,6 +62,8 @@ interface ControlBarProps {
   onTogglePanel: (panel: Exclude<SidePanel, null>) => void
   participantCount: number
   unreadCount: number
+  /** True while this user is capturing a transcript. */
+  isTranscribing: boolean
 }
 
 function ControlBtn({
@@ -374,6 +377,7 @@ function MoreSheet({
   onTogglePanel,
   participantCount,
   unreadCount,
+  isTranscribing,
 }: {
   open: boolean
   onClose: () => void
@@ -390,6 +394,7 @@ function MoreSheet({
   onTogglePanel: (panel: Exclude<SidePanel, null>) => void
   participantCount: number
   unreadCount: number
+  isTranscribing: boolean
 }) {
   const [showRecordOptions, setShowRecordOptions] = useState(false)
 
@@ -535,6 +540,16 @@ function MoreSheet({
                 }}
               />
               <SheetRow
+                icon={<FileText size={17} />}
+                label="Meeting notes"
+                hint={isTranscribing ? 'Capturing now' : 'Transcript and summary'}
+                active={activePanel === 'notes'}
+                onClick={() => {
+                  onTogglePanel('notes')
+                  onClose()
+                }}
+              />
+              <SheetRow
                 icon={<Info size={17} />}
                 label="Meeting details"
                 active={activePanel === 'info'}
@@ -581,6 +596,7 @@ export function ControlBar({
   onTogglePanel,
   participantCount,
   unreadCount,
+  isTranscribing,
 }: ControlBarProps) {
   const canShare =
     typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia
@@ -608,6 +624,13 @@ export function ControlBar({
             badge={recordingCount}
           >
             <Disc size={19} />
+          </ControlBtn>
+          <ControlBtn
+            onClick={() => onTogglePanel('notes')}
+            active={activePanel === 'notes' || isTranscribing}
+            title={isTranscribing ? 'Meeting notes (capturing)' : 'Meeting notes'}
+          >
+            <FileText size={19} />
           </ControlBtn>
         </div>
 
@@ -734,6 +757,13 @@ export function ControlBar({
             >
               <Disc size={19} />
             </ControlBtn>
+            <ControlBtn
+              onClick={() => onTogglePanel('notes')}
+              active={activePanel === 'notes' || isTranscribing}
+              title={isTranscribing ? 'Meeting notes (capturing)' : 'Meeting notes'}
+            >
+              <FileText size={19} />
+            </ControlBtn>
           </span>
           <ControlBtn
             onClick={() => onTogglePanel('participants')}
@@ -770,6 +800,7 @@ export function ControlBar({
         onTogglePanel={onTogglePanel}
         participantCount={participantCount}
         unreadCount={unreadCount}
+        isTranscribing={isTranscribing}
       />
     </div>
   )

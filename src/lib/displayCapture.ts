@@ -34,10 +34,12 @@ export async function requestDisplayCapture(): Promise<MediaStream> {
       // A hint, not a guarantee: it puts "Entire Screen" first in the picker.
       displaySurface: 'monitor',
       frameRate: { ideal: 30, max: 60 },
-      // Ask for the real desktop resolution so text survives; capped so a 5K
-      // display does not produce a stream nothing can encode in time.
-      width: { ideal: 1920, max: 3840 },
-      height: { ideal: 1080, max: 2160 },
+      // No "ideal" width/height on purpose. An ideal of 1920 makes Chrome
+      // downscale a 1440p or 4K desktop before the encoder ever sees it, and
+      // that loss is permanent. Only an upper bound is set, so capture happens
+      // at the display's native resolution.
+      width: { max: 3840 },
+      height: { max: 2160 },
     },
     // System audio should reach the far end untouched — voice processing would
     // chew up music and video playback.
@@ -92,12 +94,16 @@ export function surfaceDescription(surface: CaptureSurface): string {
 }
 
 /**
- * Screen content is mostly static text, where resolution matters more than
- * frame rate — except a whole monitor, where the user is likely moving between
- * apps and playing video, so smooth motion wins.
+ * Always 'detail' for screen content.
+ *
+ * 'motion' tells the encoder to protect frame rate and sacrifice resolution,
+ * which is right for a camera and badly wrong for a screen: it is what turns
+ * shared text into an unreadable blur. 'detail' does the opposite and keeps
+ * the picture sharp, spending frame rate instead — which is the correct trade
+ * when someone is reading what you are presenting.
  */
-export function contentHintFor(surface: CaptureSurface): 'detail' | 'motion' {
-  return surface === 'monitor' ? 'motion' : 'detail'
+export function contentHintFor(_surface: CaptureSurface): 'detail' {
+  return 'detail'
 }
 
 /**

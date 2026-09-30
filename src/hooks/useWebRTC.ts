@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Socket } from 'socket.io-client'
-import { ChatMessage, ConnectionQuality, PeerState, UserInfo } from '@/types'
+import {
+  ChatMessage,
+  ConnectionQuality,
+  PeerState,
+  TranscriptEntry,
+  UserInfo,
+} from '@/types'
 import {
   CaptureSurface,
   contentHintFor,
@@ -10,6 +16,17 @@ import {
   requestDisplayCapture,
   surfaceOf,
 } from '@/lib/displayCapture'
+
+/**
+ * Plain `video: true` yields Chrome's 640x480 default, which looks soft on any
+ * modern display. Ask for 720p, accept up to 1080p, and let it fall back on
+ * hardware that can manage neither.
+ */
+export const CAMERA_CONSTRAINTS: MediaTrackConstraints = {
+  width: { ideal: 1280, max: 1920 },
+  height: { ideal: 720, max: 1080 },
+  frameRate: { ideal: 30, max: 30 },
+}
 
 const STUN_ONLY: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -31,23 +48,62 @@ const STUN_ONLY: RTCIceServer[] = [
  * everyone's video.
  */
 function cameraEncodingFor(peerCount: number): { maxBitrate: number; scaleDownBy: number } {
-  if (peerCount <= 2) return { maxBitrate: 1_200_000, scaleDownBy: 1 }
-  if (peerCount <= 4) return { maxBitrate: 700_000, scaleDownBy: 1.5 }
-  if (peerCount <= 8) return { maxBitrate: 450_000, scaleDownBy: 2 }
-  return { maxBitrate: 250_000, scaleDownBy: 3 }
+  // Full 720p while the room is small; only start scaling down once the mesh
+  // is genuinely expensive to encode.
+  if (peerCount <= 2) return { maxBitrate: 2_500_000, scaleDownBy: 1 }
+  if (peerCount <= 4) return { maxBitrate: 1_200_000, scaleDownBy: 1 }
+  if (peerCount <= 8) return { maxBitrate: 700_000, scaleDownBy: 1.5 }
+  return { maxBitrate: 400_000, scaleDownBy: 2 }
 }
 
-async function applyCameraEncoding(sender: RTCRtpSender, peerCount: number): Promise<void> {
+/**
+ * A shared screen gets a far bigger budget than a camera: it is usually text,
+ * and text is unreadable long before it merely looks soft. Still scaled by
+ * room size, because in a mesh this is encoded and sent once per peer, and
+ * saturating the uplink makes the picture worse for everyone.
+ */
+function screenEncodingFor(peerCount: number): number {
+  if (peerCount <= 1) return 8_000_000
+  if (peerCount <= 3) return 6_000_000
+  if (peerCount <= 6) return 4_000_000
+  return 2_500_000
+}
+
+/**
+ * setParameters silently does nothing before the sender has encodings, which
+ * is the case immediately after addTrack and before negotiation finishes — so
+ * callers also re-apply this once the connection is up.
+ */
+async function applyEncoding(
+  sender: RTCRtpSender,
+  settings: { maxBitrate: number; scaleDownBy: number; screen: boolean }
+): Promise<void> {
   try {
     const params = sender.getParameters()
     if (!params.encodings || params.encodings.length === 0) return
-    const { maxBitrate, scaleDownBy } = cameraEncodingFor(peerCount)
-    params.encodings[0].maxBitrate = maxBitrate
-    params.encodings[0].scaleResolutionDownBy = scaleDownBy
+    params.encodings[0].maxBitrate = settings.maxBitrate
+    params.encodings[0].scaleResolutionDownBy = settings.scaleDownBy
+    // The single most important setting for a readable screen share: under
+    // congestion, drop frames rather than resolution. The default ('balanced')
+    // shrinks the picture instead, which is what turns shared text to mush.
+    params.degradationPreference = settings.screen ? 'maintain-resolution' : 'balanced'
     await sender.setParameters(params)
   } catch {
     // Best-effort: the call still works at the browser's own defaults.
   }
+}
+
+async function applyCameraEncoding(sender: RTCRtpSender, peerCount: number): Promise<void> {
+  const { maxBitrate, scaleDownBy } = cameraEncodingFor(peerCount)
+  await applyEncoding(sender, { maxBitrate, scaleDownBy, screen: false })
+}
+
+async function applyScreenEncoding(sender: RTCRtpSender, peerCount: number): Promise<void> {
+  await applyEncoding(sender, {
+    maxBitrate: screenEncodingFor(peerCount),
+    scaleDownBy: 1,
+    screen: true,
+  })
 }
 
 interface PeerConn {
@@ -101,6 +157,7 @@ export interface UseWebRTCReturn {
   screenSurface: CaptureSurface
   isHandRaised: boolean
   messages: ChatMessage[]
+  transcript: TranscriptEntry[]
   isOwner: boolean
   ownerId: string | null
   isLocked: boolean
@@ -171,6 +228,7 @@ export function useWebRTC({
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [isHandRaised, setIsHandRaised] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
   const [ownerId, setOwnerId] = useState<string | null>(null)
   const [isLocked, setIsLocked] = useState(false)
   const [maxParticipants, setMaxParticipants] = useState(16)
@@ -341,6 +399,14 @@ export function useWebRTC({
 
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'failed') setHadIceFailure(true)
+        if (pc.connectionState === 'connected') {
+          // Encodings exist only once negotiation completes, so anything set
+          // at addTrack time may have been silently discarded.
+          const peerCount = peerConnsRef.current.size
+          if (conn.camVideoSender) void applyCameraEncoding(conn.camVideoSender, peerCount)
+          const screenSender = conn.screenSenders.find((x) => x.track?.kind === 'video')
+          if (screenSender) void applyScreenEncoding(screenSender, peerCount)
+        }
         patchPeer(remoteId, {
           connectionState: pc.connectionState,
           quality:
@@ -367,6 +433,7 @@ export function useWebRTC({
           isHandRaised: user.isHandRaised,
           isScreenSharing: user.isScreenSharing,
           isRecording: user.isRecording ?? false,
+          isTranscribing: user.isTranscribing ?? false,
           quality: 'connecting',
           connectionState: pc.connectionState,
         })
@@ -579,6 +646,17 @@ export function useWebRTC({
     }) => patchPeer(socketId, { isRecording })
 
     const handleMessage = (message: ChatMessage) => setMessages((prev) => [...prev, message])
+
+    const handleTranscript = (entry: TranscriptEntry) =>
+      setTranscript((prev) => [...prev, entry])
+
+    const handleTranscribing = ({
+      socketId,
+      isTranscribing,
+    }: {
+      socketId: string
+      isTranscribing: boolean
+    }) => patchPeer(socketId, { isTranscribing })
     const handleOwnerChanged = ({ ownerId: next }: { ownerId: string }) => setOwnerId(next)
     const handleLockState = ({ locked }: { locked: boolean }) => setIsLocked(locked)
     const handleKicked = () => setWasKicked(true)
@@ -632,6 +710,8 @@ export function useWebRTC({
     socket.on('user-screen-share', handleScreenShare)
     socket.on('user-recording', handleRecording)
     socket.on('receive-message', handleMessage)
+    socket.on('transcript', handleTranscript)
+    socket.on('user-transcribing', handleTranscribing)
     socket.on('owner-changed', handleOwnerChanged)
     socket.on('room-lock-state', handleLockState)
     socket.on('kicked', handleKicked)
@@ -673,6 +753,8 @@ export function useWebRTC({
       socket.off('user-screen-share', handleScreenShare)
       socket.off('user-recording', handleRecording)
       socket.off('receive-message', handleMessage)
+      socket.off('transcript', handleTranscript)
+      socket.off('user-transcribing', handleTranscribing)
       socket.off('owner-changed', handleOwnerChanged)
       socket.off('room-lock-state', handleLockState)
       socket.off('kicked', handleKicked)
@@ -699,6 +781,8 @@ export function useWebRTC({
     const peerCount = peers.size
     peerConnsRef.current.forEach((conn) => {
       if (conn.camVideoSender) void applyCameraEncoding(conn.camVideoSender, peerCount)
+      const screenSender = conn.screenSenders.find((x) => x.track?.kind === 'video')
+      if (screenSender) void applyScreenEncoding(screenSender, peerCount)
     })
   }, [peers.size])
 
@@ -825,7 +909,7 @@ export function useWebRTC({
 
     void (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        const stream = await navigator.mediaDevices.getUserMedia({ video: CAMERA_CONSTRAINTS })
         const newTrack = stream.getVideoTracks()[0]
         if (!newTrack) return
         replaceLocalTrack('video', newTrack)
@@ -841,7 +925,7 @@ export function useWebRTC({
     async (deviceId: string) => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: deviceId } },
+          video: { deviceId: { exact: deviceId }, ...CAMERA_CONSTRAINTS },
         })
         const track = stream.getVideoTracks()[0]
         if (!track) return
@@ -943,19 +1027,7 @@ export function useWebRTC({
         conn.screenSenders = container.getTracks().map((track) => conn.pc.addTrack(track, container))
 
         const videoSender = conn.screenSenders.find((sender) => sender.track?.kind === 'video')
-        if (videoSender) {
-          try {
-            const params = videoSender.getParameters()
-            if (params.encodings?.length) {
-              // Never scale a shared screen down — legible text is the point.
-              params.encodings[0].scaleResolutionDownBy = 1
-              params.encodings[0].maxBitrate = surface === 'monitor' ? 4_000_000 : 2_500_000
-              void videoSender.setParameters(params)
-            }
-          } catch {
-            // setParameters is best-effort; the share works fine without it.
-          }
-        }
+        if (videoSender) void applyScreenEncoding(videoSender, peerConnsRef.current.size)
       })
 
       setLocalScreenStream(new MediaStream(container.getTracks()))
@@ -1023,6 +1095,7 @@ export function useWebRTC({
     screenSurface,
     isHandRaised,
     messages,
+    transcript,
     isOwner,
     ownerId,
     isLocked,

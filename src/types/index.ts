@@ -12,6 +12,7 @@ export interface UserInfo {
   isHandRaised: boolean
   isScreenSharing: boolean
   isRecording: boolean
+  isTranscribing: boolean
   /** Stream id this participant will present their screen on, if they do. */
   screenStreamId: string | null
   joinedAt: string
@@ -38,6 +39,7 @@ export interface PeerState {
   isHandRaised: boolean
   isScreenSharing: boolean
   isRecording: boolean
+  isTranscribing: boolean
   quality: ConnectionQuality
   connectionState: RTCPeerConnectionState
 }
@@ -106,4 +108,24 @@ export interface MediaDeviceSets {
   cameras: DeviceOption[]
   microphones: DeviceOption[]
   speakers: DeviceOption[]
+}
+
+/** One finalised utterance from a participant. */
+export interface TranscriptEntry {
+  id: string
+  speakerId: string
+  speakerName: string
+  text: string
+  timestamp: string
+}
+
+/** Notes produced from a transcript, by an LLM or the local fallback. */
+export interface MeetingNotes {
+  summary: string
+  keyPoints: string[]
+  decisions: string[]
+  actionItems: { text: string; owner?: string }[]
+  /** Which model wrote them, or 'local' when generated without an LLM. */
+  generatedBy: string
+  generatedAt: string
 }
