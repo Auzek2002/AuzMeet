@@ -21,6 +21,7 @@ import { ChatPanel } from './ChatPanel'
 import { InfoPanel } from './InfoPanel'
 import { RecordingsPanel } from './RecordingsPanel'
 import { NotesPanel } from './NotesPanel'
+import { CatchUpCard } from './CatchUpCard'
 import { PeerAudio } from './PeerAudio'
 import { Toasts } from './Toasts'
 
@@ -49,6 +50,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
   // Dismissing the invite card keeps it gone for the rest of the meeting,
   // including if everyone leaves and you end up alone again.
   const [inviteDismissed, setInviteDismissed] = useState(false)
+  const [catchUpDismissed, setCatchUpDismissed] = useState(false)
 
   // ── Toasts ───────────────────────────────────────────────────────────────
   const notify = useCallback((kind: ToastKind, message: string) => {
@@ -74,6 +76,8 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
     isHandRaised,
     messages,
     transcript,
+    missedTranscript,
+    meetingStartedAt,
     isOwner,
     ownerId,
     isLocked,
@@ -404,6 +408,9 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
   // Mirrors activePanel for event handlers that must read it synchronously.
   const activePanelRef = useRef(activePanel)
   activePanelRef.current = activePanel
+  // Same reason as the panel: a setState updater cannot be read back here.
+  const catchUpRef = useRef(false)
+  catchUpRef.current = !catchUpDismissed && missedTranscript.length > 0
 
   // Chat badge clears while the chat is open.
   useEffect(() => {
@@ -458,6 +465,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
       // synchronously, so its result cannot decide what else to close here.
       if (event.key === 'Escape') {
         if (activePanelRef.current) setActivePanel(null)
+        else if (catchUpRef.current) setCatchUpDismissed(true)
         else setInviteDismissed(true)
         return
       }
@@ -621,6 +629,17 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
             hideSelfView={hideSelfView}
           />
 
+          {/* Walked into a meeting already under way: offer the brief up front,
+              which is the one moment it is actually worth something. */}
+          {!catchUpDismissed && missedTranscript.length > 0 && (
+            <CatchUpCard
+              missed={missedTranscript}
+              meetingStartedAt={meetingStartedAt}
+              viewerName={userName}
+              onDismiss={() => setCatchUpDismissed(true)}
+            />
+          )}
+
           {/* Gentle nudge to invite people while alone in the room */}
           {showInviteCard && (
             <div
@@ -714,6 +733,9 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
                 <NotesPanel
                   roomId={roomId}
                   entries={transcript}
+                  missed={missedTranscript}
+                  meetingStartedAt={meetingStartedAt}
+                  viewerName={userName}
                   interim={transcription.interim}
                   supported={transcription.supported}
                   isTranscribing={transcription.isTranscribing}

@@ -13,6 +13,13 @@
 
 const MAX_PARTICIPANTS = parseInt(process.env.MAX_PARTICIPANTS || '16', 10)
 
+/**
+ * How many spoken lines a room keeps. Roughly two to three hours of talking;
+ * past that the oldest are dropped, which is also the oldest and least useful
+ * material for catching someone up.
+ */
+const MAX_TRANSCRIPT_ENTRIES = parseInt(process.env.MAX_TRANSCRIPT_ENTRIES || '1500', 10)
+
 function attachSignaling(io) {
   /** rooms: Map<roomId, { members: Set<socketId>, ownerId, locked, createdAt }> */
   const rooms = new Map()
@@ -136,6 +143,11 @@ function attachSignaling(io) {
           ownerId: socket.id,
           locked: false,
           createdAt: Date.now(),
+          // Spoken lines are broadcast live, so without this a late joiner
+          // would have no record of anything said before they arrived - and
+          // nothing to be caught up on. Bounded so a long meeting cannot grow
+          // the process without limit.
+          transcript: [],
         })
       }
       const room = rooms.get(roomId)
@@ -156,6 +168,17 @@ function attachSignaling(io) {
       })
 
       room.members.add(socket.id)
+
+      // Everything said before this person arrived. They can read it, generate
+      // notes covering the whole meeting, and ask to be caught up.
+      if (room.transcript.length > 0) {
+        socket.emit('transcript-history', {
+          entries: room.transcript,
+          meetingStartedAt: new Date(room.createdAt).toISOString(),
+          joinedAt: user.joinedAt,
+        })
+      }
+
       socket.to(roomId).emit('user-joined', publicUser(user))
       systemMessage(roomId, `${user.name} joined the meeting`)
 
@@ -246,13 +269,23 @@ function attachSignaling(io) {
       const clean = text.trim().slice(0, 1000)
       if (!clean) return
 
-      io.to(user.roomId).emit('transcript', {
+      const entry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         speakerId: socket.id,
         speakerName: user.name,
         text: clean,
         timestamp: new Date().toISOString(),
-      })
+      }
+
+      const room = rooms.get(user.roomId)
+      if (room) {
+        room.transcript.push(entry)
+        if (room.transcript.length > MAX_TRANSCRIPT_ENTRIES) {
+          room.transcript.splice(0, room.transcript.length - MAX_TRANSCRIPT_ENTRIES)
+        }
+      }
+
+      io.to(user.roomId).emit('transcript', entry)
     })
 
     // Everyone is told when someone turns note-taking on, the same way

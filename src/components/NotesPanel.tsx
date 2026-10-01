@@ -14,11 +14,16 @@ import {
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { MeetingNotes, TranscriptEntry } from '@/types'
+import { CatchUpCard } from './CatchUpCard'
 import { downloadMarkdown, notesToMarkdown } from '@/lib/notes'
 
 interface NotesPanelProps {
   roomId: string
   entries: TranscriptEntry[]
+  /** Lines spoken before this user joined. */
+  missed: TranscriptEntry[]
+  meetingStartedAt: string | null
+  viewerName: string
   interim: string
   supported: boolean
   isTranscribing: boolean
@@ -27,11 +32,14 @@ interface NotesPanelProps {
   onClose: () => void
 }
 
-type Tab = 'notes' | 'transcript'
+type Tab = 'notes' | 'catchup' | 'transcript'
 
 export function NotesPanel({
   roomId,
   entries,
+  missed,
+  meetingStartedAt,
+  viewerName,
   interim,
   supported,
   isTranscribing,
@@ -152,6 +160,8 @@ export function NotesPanel({
         {(
           [
             ['notes', 'Notes'],
+            // Only worth a tab when this person actually missed something.
+            ...(missed.length > 0 ? [['catchup', 'Catch up'] as [Tab, string]] : []),
             ['transcript', `Transcript${entries.length ? ` (${entries.length})` : ''}`],
           ] as [Tab, string][]
         ).map(([value, label]) => (
@@ -171,7 +181,14 @@ export function NotesPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {tab === 'transcript' ? (
+        {tab === 'catchup' ? (
+          <CatchUpCard
+            missed={missed}
+            meetingStartedAt={meetingStartedAt}
+            viewerName={viewerName}
+            inline
+          />
+        ) : tab === 'transcript' ? (
           <div className="px-3 py-3 space-y-2.5">
             {entries.length === 0 && !interim ? (
               <p className="text-muted text-sm text-center mt-6 leading-relaxed">

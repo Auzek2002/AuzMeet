@@ -158,6 +158,9 @@ export interface UseWebRTCReturn {
   isHandRaised: boolean
   messages: ChatMessage[]
   transcript: TranscriptEntry[]
+  /** What was already said when this user joined; empty if they were first. */
+  missedTranscript: TranscriptEntry[]
+  meetingStartedAt: string | null
   isOwner: boolean
   ownerId: string | null
   isLocked: boolean
@@ -229,6 +232,10 @@ export function useWebRTC({
   const [isHandRaised, setIsHandRaised] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
+  // Lines that were already spoken when this user joined, kept separately so
+  // the UI can offer to summarise exactly what they missed.
+  const [missedTranscript, setMissedTranscript] = useState<TranscriptEntry[]>([])
+  const [meetingStartedAt, setMeetingStartedAt] = useState<string | null>(null)
   const [ownerId, setOwnerId] = useState<string | null>(null)
   const [isLocked, setIsLocked] = useState(false)
   const [maxParticipants, setMaxParticipants] = useState(16)
@@ -650,6 +657,26 @@ export function useWebRTC({
     const handleTranscript = (entry: TranscriptEntry) =>
       setTranscript((prev) => [...prev, entry])
 
+    // Sent once, right after joining a meeting that is already in progress.
+    const handleTranscriptHistory = ({
+      entries,
+      meetingStartedAt: startedAt,
+    }: {
+      entries: TranscriptEntry[]
+      meetingStartedAt?: string
+      joinedAt?: string
+    }) => {
+      if (!Array.isArray(entries) || entries.length === 0) return
+      setMissedTranscript(entries)
+      if (startedAt) setMeetingStartedAt(startedAt)
+      // Prepend, skipping anything already received in the race between the
+      // history snapshot and the first live line.
+      setTranscript((prev) => {
+        const seen = new Set(prev.map((e) => e.id))
+        return [...entries.filter((e) => !seen.has(e.id)), ...prev]
+      })
+    }
+
     const handleTranscribing = ({
       socketId,
       isTranscribing,
@@ -711,6 +738,7 @@ export function useWebRTC({
     socket.on('user-recording', handleRecording)
     socket.on('receive-message', handleMessage)
     socket.on('transcript', handleTranscript)
+    socket.on('transcript-history', handleTranscriptHistory)
     socket.on('user-transcribing', handleTranscribing)
     socket.on('owner-changed', handleOwnerChanged)
     socket.on('room-lock-state', handleLockState)
@@ -754,6 +782,7 @@ export function useWebRTC({
       socket.off('user-recording', handleRecording)
       socket.off('receive-message', handleMessage)
       socket.off('transcript', handleTranscript)
+      socket.off('transcript-history', handleTranscriptHistory)
       socket.off('user-transcribing', handleTranscribing)
       socket.off('owner-changed', handleOwnerChanged)
       socket.off('room-lock-state', handleLockState)
@@ -1096,6 +1125,8 @@ export function useWebRTC({
     isHandRaised,
     messages,
     transcript,
+    missedTranscript,
+    meetingStartedAt,
     isOwner,
     ownerId,
     isLocked,

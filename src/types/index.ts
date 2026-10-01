@@ -129,3 +129,17 @@ export interface MeetingNotes {
   generatedBy: string
   generatedAt: string
 }
+
+/** Orientation for someone who joined late or stepped away. */
+export interface CatchUpBrief {
+  headline: string
+  missed: string[]
+  currentTopic: string
+  openQuestions: string[]
+  /** Anything addressed to this person by name while they were away. */
+  mentionsOfYou: string[]
+  /** How many transcript segments the brief was built from. */
+  coveredEntries: number
+  generatedBy: string
+  generatedAt: string
+}
