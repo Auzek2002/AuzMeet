@@ -130,7 +130,7 @@ export function useAudioLevels(sources: AudioSource[]): UseAudioLevelsReturn {
       setSpeakingIds(nextSpeaking)
       setActiveSpeakerId((current) => {
         if (loudestId) return loudestId
-        // Nobody is talking — keep the last speaker on stage while still recent.
+        // Nobody is talking - keep the last speaker on stage while still recent.
         if (current) {
           const lastSpoke = lastSpokeRef.current.get(current) ?? 0
           if (now - lastSpoke < HOLD_MS * 3) return current

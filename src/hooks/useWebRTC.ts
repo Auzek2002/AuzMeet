@@ -38,7 +38,7 @@ const STUN_ONLY: RTCIceServer[] = [
  *
  * Camera tracks are added with addTrack so the two ends pair their m-lines up
  * normally. Screen tracks are added only while presenting, which triggers a
- * renegotiation round — perfect negotiation makes that safe even when both
+ * renegotiation round - perfect negotiation makes that safe even when both
  * sides start presenting at the same moment.
  */
 /**
@@ -71,7 +71,7 @@ function screenEncodingFor(peerCount: number): number {
 
 /**
  * setParameters silently does nothing before the sender has encodings, which
- * is the case immediately after addTrack and before negotiation finishes — so
+ * is the case immediately after addTrack and before negotiation finishes - so
  * callers also re-apply this once the connection is up.
  */
 async function applyEncoding(
@@ -701,7 +701,7 @@ export function useWebRTC({
     }
 
     // Losing the signaling socket does not drop existing media, but nobody
-    // can join or leave until it is back — the UI should say so.
+    // can join or leave until it is back - the UI should say so.
     const handleDisconnect = () => {
       setIsConnected(false)
       setSignalingStatus('reconnecting')
@@ -869,7 +869,7 @@ export function useWebRTC({
   /**
    * Swaps a camera/mic track into the stable container and onto every peer.
    * A participant who joined without that device has no sender yet, so one is
-   * added — which renegotiates, exactly as it should.
+   * added - which renegotiates, exactly as it should.
    */
   const replaceLocalTrack = useCallback(
     (kind: 'audio' | 'video', track: MediaStreamTrack | null) => {

@@ -24,7 +24,7 @@ export default function MeetingPage() {
     setSocket(s)
     setPhase('prejoin')
 
-    // No cleanup — MeetingRoom handles disconnect on leave
+    // No cleanup - MeetingRoom handles disconnect on leave
   }, [])
 
   const handleJoin = (name: string, stream: MediaStream | null) => {

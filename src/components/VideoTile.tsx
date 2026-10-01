@@ -87,7 +87,7 @@ export function VideoTile({
   // anything to show yet.
   //
   // A remote stream gains its tracks one at a time as they arrive, and the
-  // stream object itself never changes identity — so we re-bind on addtrack
+  // stream object itself never changes identity - so we re-bind on addtrack
   // rather than assuming the video track is present on the first pass.
   useEffect(() => {
     const element = videoRef.current

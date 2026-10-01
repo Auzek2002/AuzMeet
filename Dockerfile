@@ -1,4 +1,4 @@
-# Runs the whole of AuzMeet — Next.js and the signaling server — in one
+# Runs the whole of AuzMeet - Next.js and the signaling server - in one
 # long-lived process, which is what WebRTC signaling requires.
 FROM node:20-alpine AS deps
 WORKDIR /app

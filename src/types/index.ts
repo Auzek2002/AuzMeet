@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared types for AuzMeet — used by both the client and (informally) server.js
+// Shared types for AuzMeet - used by both the client and (informally) server.js
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** A participant as tracked by the signaling server. */
@@ -24,7 +24,7 @@ export type ConnectionQuality = 'connecting' | 'excellent' | 'good' | 'poor' | '
  * A remote participant on the client.
  *
  * A peer's camera and screen arrive as two independent streams, told apart by
- * the stream id the peer announced, so both can be shown at the same time —
+ * the stream id the peer announced, so both can be shown at the same time -
  * sharing your screen never takes your camera away.
  */
 export interface PeerState {

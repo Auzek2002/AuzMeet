@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 /**
  * Supplies ICE servers to the browser.
  *
- * STUN alone only works when at least one peer is directly reachable — which is
+ * STUN alone only works when at least one peer is directly reachable - which is
  * why calls succeed on one network and fail between two. Two people behind
  * different NATs need a TURN server to relay the media, so one must be
  * configured for the app to work over the internet.
@@ -85,7 +85,7 @@ async function fromMeteredApi(): Promise<TurnResult | null> {
 /**
  * Metered, using the static username/password from the dashboard.
  *
- * Note which hostname is which — getting this wrong looks exactly like broken
+ * Note which hostname is which - getting this wrong looks exactly like broken
  * credentials. `<yourapp>.metered.live` is the **API** host (an HTTP CDN, used
  * only to mint credentials); the TURN relays live on `*.relay.metered.ca`.
  * Pointing TURN at the API host resolves and even accepts a TCP connection,
@@ -121,7 +121,7 @@ function fromMeteredStatic(): TurnResult | null {
     hasTurn: true,
     warning: looksLikeApiHost
       ? `METERED_TURN_HOST was set to "${host}", which is Metered's API domain and cannot ` +
-        `serve TURN. Using ${DEFAULT_METERED_RELAY} instead — copy the exact relay hostname ` +
+        `serve TURN. Using ${DEFAULT_METERED_RELAY} instead. Copy the exact relay hostname ` +
         `from your Metered dashboard if that is not right.`
       : undefined,
   }
@@ -207,7 +207,7 @@ export async function GET() {
       }
     } catch (err) {
       // A misconfigured provider should not silently fall through to a broken
-      // call — log loudly and try the next one.
+      // call - log loudly and try the next one.
       console.error(`[TURN] ${name} failed:`, err instanceof Error ? err.message : err)
     }
   }

@@ -302,7 +302,7 @@ export function NotesPanel({
                           <span className="text-amber-400 flex-shrink-0">☐</span>
                           <span>
                             {item.owner && (
-                              <span className="text-accent font-medium">{item.owner} — </span>
+                              <span className="text-accent font-medium">{item.owner}: </span>
                             )}
                             {item.text}
                           </span>

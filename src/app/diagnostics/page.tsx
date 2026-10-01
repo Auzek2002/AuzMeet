@@ -42,7 +42,7 @@ export default function DiagnosticsPage() {
     'turn-broken': {
       icon: <XCircle size={22} className="text-red-400" />,
       title: 'TURN is configured but not working',
-      body: 'This network can reach the internet fine, but the TURN server returned no relay candidate — usually wrong credentials, an expired key, or a blocked port. Check the errors below.',
+      body: 'This network can reach the internet fine, but the TURN server returned no relay candidate. That usually means wrong credentials, an expired key, or a blocked port. Check the errors below.',
       tone: 'border-red-400/30 bg-red-400/10',
     },
     'udp-blocked': {
@@ -140,8 +140,8 @@ export default function DiagnosticsPage() {
               >
                 Network check (public STUN, ignoring your settings):{' '}
                 {result.baselineSrflx === 0
-                  ? 'no candidates — this network is blocking UDP, or a VPN is in the way'
-                  : `${result.baselineSrflx} candidate(s) — basic connectivity is fine`}
+                  ? 'no candidates, so this network is blocking UDP, or a VPN is in the way'
+                  : `${result.baselineSrflx} candidate(s), so basic connectivity is fine`}
               </p>
             </section>
 
@@ -181,7 +181,7 @@ export default function DiagnosticsPage() {
                   ))}
                 </ul>
                 <p className="text-[11px] text-muted mt-2 leading-relaxed">
-                  701 means the server could not be reached at all — a blocked port, or no route
+                  701 means the server could not be reached at all: a blocked port, or no route
                   from this network. 400 or 401 mean it answered and rejected the credentials.
                   &ldquo;Address not associated with the desired network interface&rdquo; almost
                   always means a VPN or virtual adapter is intercepting the traffic.

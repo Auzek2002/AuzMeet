@@ -78,7 +78,7 @@ export function notesToMarkdown(
   const lines: string[] = []
   const when = new Date(notes.generatedAt)
 
-  lines.push(`# Meeting notes — ${meta.roomId}`)
+  lines.push(`# Meeting notes: ${meta.roomId}`)
   lines.push('')
   lines.push(`*${when.toLocaleString()}*`)
   lines.push('')
@@ -112,7 +112,7 @@ export function notesToMarkdown(
     lines.push('## Action items')
     lines.push('')
     notes.actionItems.forEach((item) =>
-      lines.push(`- [ ] ${item.owner ? `**${item.owner}** — ` : ''}${item.text}`)
+      lines.push(`- [ ] ${item.owner ? `**${item.owner}**: ` : ''}${item.text}`)
     )
     lines.push('')
   }

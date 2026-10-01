@@ -6,7 +6,7 @@ import type { Config } from 'tailwindcss'
  * reads as a single thing rather than two.
  *
  * Muted/subtle text values are chosen to clear WCAG AA (4.5:1) against the
- * app and surface backgrounds — the previous greys did not.
+ * app and surface backgrounds - the previous greys did not.
  */
 const config: Config = {
   content: [
@@ -16,6 +16,11 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        body: ['var(--font-body)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'var(--font-body)', 'sans-serif'],
+        accent: ['var(--font-accent)', 'Georgia', 'serif'],
+      },
       colors: {
         // Backgrounds, darkest to lightest
         app: '#0a0a14',

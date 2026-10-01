@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     }
 
     // The model is told to return objects, but a plain string list is a common
-    // and harmless deviation — accept both rather than dropping the section.
+    // and harmless deviation - accept both rather than dropping the section.
     type Action = { text: string; owner?: string }
     const actionItems: Action[] = []
     if (Array.isArray(parsed.actionItems)) {

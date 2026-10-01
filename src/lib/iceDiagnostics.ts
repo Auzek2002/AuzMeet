@@ -4,10 +4,10 @@
  * This is the single question that decides whether calls work between people on
  * different networks:
  *
- *   host  — your machine's own address. Enough on one LAN.
- *   srflx — your public address, discovered via STUN. Enough when at least one
+ *   host  - your machine's own address. Enough on one LAN.
+ *   srflx - your public address, discovered via STUN. Enough when at least one
  *           side's NAT is permissive.
- *   relay — allocated on a TURN server. Required when both sides are behind
+ *   relay - allocated on a TURN server. Required when both sides are behind
  *           NATs that will not accept an inbound connection.
  *
  * No relay candidates means cross-network calls will sit at "Connecting…".

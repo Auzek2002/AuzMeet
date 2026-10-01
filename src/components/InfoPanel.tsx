@@ -113,7 +113,7 @@ export function InfoPanel({
             <div className="flex items-center gap-2.5 text-sm">
               <Lock size={14} className={clsx('flex-shrink-0', isLocked ? 'text-amber-400' : 'text-muted')} />
               <span className={isLocked ? 'text-amber-300' : 'text-primary'}>
-                {isLocked ? 'Locked — nobody new can join' : 'Open to anyone with the link'}
+                {isLocked ? 'Locked. Nobody new can join' : 'Open to anyone with the link'}
               </span>
             </div>
           </div>

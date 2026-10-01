@@ -91,7 +91,7 @@ export function RecordingsPanel({
                   </span>
                 </div>
                 <p className="text-muted text-xs mb-3">
-                  {activeMode ? MODE_LABEL[activeMode] : ''} — saved on this device
+                  {activeMode ? MODE_LABEL[activeMode] : ''} , saved on this device
                 </p>
                 <div className="flex gap-2">
                   <button

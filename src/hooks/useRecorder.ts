@@ -235,7 +235,7 @@ export function useRecorder({
   }, [mode, finalize, onRecordingChange, onError])
 
   // stop() is referenced from inside start() (for the capture-ended listener),
-  // which is defined first — a ref keeps that reference current.
+  // which is defined first - a ref keeps that reference current.
   const stopRef = useRef<() => Promise<void>>()
   stopRef.current = stop
 

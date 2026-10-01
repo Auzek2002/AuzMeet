@@ -25,7 +25,7 @@ function minutesSince(iso: string | null): number | null {
  * Offers a late joiner a short brief on what they walked in on.
  *
  * Appears on its own when there is genuinely something missed, because the
- * moment it is useful is the moment you arrive — not somewhere behind a menu.
+ * moment it is useful is the moment you arrive - not somewhere behind a menu.
  */
 export function CatchUpCard({
   missed,
@@ -163,7 +163,7 @@ export function CatchUpCard({
 
           <p className="text-subtle text-[10px] leading-relaxed">
             Summarised from {brief.coveredEntries} segments by {brief.generatedBy}. Speech
-            recognition makes mistakes — worth confirming anything important.
+            recognition makes mistakes, so confirm anything important.
           </p>
         </div>
       )}

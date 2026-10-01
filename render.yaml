@@ -1,6 +1,6 @@
 # Render blueprint for AuzMeet.
 #
-# Option A (simplest): one service running the whole app — Next.js and the
+# Option A (simplest): one service running the whole app - Next.js and the
 # signaling server together. Deploy this and use the service URL directly;
 # NEXT_PUBLIC_SIGNALING_URL is not needed because both share an origin.
 #

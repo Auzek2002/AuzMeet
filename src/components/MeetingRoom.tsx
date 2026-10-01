@@ -261,7 +261,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
       notify(
         recording ? 'success' : 'info',
         recording
-          ? 'Recording started — everyone in the meeting has been told'
+          ? 'Recording started. Everyone in the meeting has been told'
           : 'Recording saved. Download it from the Recordings panel.'
       )
       if (!recording) setActivePanel('recordings')
@@ -337,7 +337,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
     )
   }, [hasTurn, peers.size, notify])
 
-  // Say plainly what the picked surface exposes — "entire screen" and "one tab"
+  // Say plainly what the picked surface exposes - "entire screen" and "one tab"
   // behave very differently once the user starts moving between tabs.
   const announcedShareRef = useRef(false)
   useEffect(() => {
@@ -375,7 +375,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
   const handleLeave = useCallback(() => {
     if (recorder.isRecording) {
       const confirmed = window.confirm(
-        'You are still recording. Leaving now stops the recording — download it from the Recordings panel before you go.'
+        'You are still recording. Leaving now stops the recording. Download it from the Recordings panel before you go.'
       )
       if (!confirmed) return
     }
@@ -525,7 +525,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     } catch {
-      notify('error', 'Could not copy the link — use the meeting details panel.')
+      notify('error', 'Could not copy the link. Use the meeting details panel.')
     }
   }, [roomId, notify])
 
@@ -569,7 +569,7 @@ export function MeetingRoom({ roomId, userName, socket, initialStream }: Meeting
             {isServerlessHost() && !SIGNALING_URL ? (
               <>
                 This site is hosted on a serverless platform, which cannot run the
-                signaling server — it needs a process that stays alive. Deploy{' '}
+                signaling server, which needs a process that stays alive. Deploy{' '}
                 <code className="font-mono">signaling-server.js</code> somewhere persistent and
                 set <code className="font-mono">NEXT_PUBLIC_SIGNALING_URL</code>. See
                 DEPLOYMENT.md.

@@ -18,7 +18,7 @@ export type CaptureSurface = 'monitor' | 'window' | 'browser' | 'unknown'
 interface ExtendedDisplayMediaOptions {
   video: MediaTrackConstraints & { displaySurface?: string }
   audio: boolean | MediaTrackConstraints
-  /** Keep AuzMeet's own tab out of the picker — avoids a hall-of-mirrors share. */
+  /** Keep AuzMeet's own tab out of the picker - avoids a hall-of-mirrors share. */
   selfBrowserSurface?: 'include' | 'exclude'
   /** Lets the user switch to a different screen or window mid-share. */
   surfaceSwitching?: 'include' | 'exclude'
@@ -41,7 +41,7 @@ export async function requestDisplayCapture(): Promise<MediaStream> {
       width: { max: 3840 },
       height: { max: 2160 },
     },
-    // System audio should reach the far end untouched — voice processing would
+    // System audio should reach the far end untouched - voice processing would
     // chew up music and video playback.
     audio: {
       echoCancellation: false,
@@ -83,11 +83,11 @@ export function surfaceLabel(surface: CaptureSurface): string {
 export function surfaceDescription(surface: CaptureSurface): string {
   switch (surface) {
     case 'monitor':
-      return 'Sharing your entire screen — every tab, window and app you switch to is visible to everyone.'
+      return 'Sharing your entire screen. Every tab, window and app you switch to is visible to everyone.'
     case 'window':
-      return 'Sharing a single window — only that window is visible, even if you switch apps.'
+      return 'Sharing a single window. Only that window is visible, even if you switch apps.'
     case 'browser':
-      return 'Sharing one browser tab — other tabs you switch to will not be shared.'
+      return 'Sharing one browser tab. Other tabs you switch to will not be shared.'
     default:
       return 'Sharing your screen.'
   }
@@ -99,7 +99,7 @@ export function surfaceDescription(surface: CaptureSurface): string {
  * 'motion' tells the encoder to protect frame rate and sacrifice resolution,
  * which is right for a camera and badly wrong for a screen: it is what turns
  * shared text into an unreadable blur. 'detail' does the opposite and keeps
- * the picture sharp, spending frame rate instead — which is the correct trade
+ * the picture sharp, spending frame rate instead - which is the correct trade
  * when someone is reading what you are presenting.
  */
 export function contentHintFor(_surface: CaptureSurface): 'detail' {

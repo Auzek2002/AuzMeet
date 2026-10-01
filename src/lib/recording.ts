@@ -10,7 +10,7 @@ export interface FrameSource {
   stream: MediaStream | null
   label: string
   isScreen: boolean
-  /** False when the camera is off — draws an initials avatar instead. */
+  /** False when the camera is off - draws an initials avatar instead. */
   showVideo: boolean
   isMuted: boolean
   isSpeaking: boolean
@@ -31,7 +31,7 @@ export interface RecorderConfig {
   width?: number
   height?: number
   fps?: number
-  /** Drawn in the header — usually the meeting code. */
+  /** Drawn in the header - usually the meeting code. */
   title?: string
   /**
    * When this returns a track, the recorder muxes it straight through instead
@@ -111,7 +111,7 @@ interface SourceImage {
   height: number
 }
 
-/** Fills the box, cropping overflow — used for camera tiles. */
+/** Fills the box, cropping overflow - used for camera tiles. */
 function drawCover(
   ctx: CanvasRenderingContext2D,
   frame: SourceImage,
@@ -128,7 +128,7 @@ function drawCover(
   ctx.drawImage(frame.image, (vw - sw) / 2, (vh - sh) / 2, sw, sh, x, y, w, h)
 }
 
-/** Letterboxes inside the box — used for shared screens, which must not crop. */
+/** Letterboxes inside the box - used for shared screens, which must not crop. */
 function drawContain(
   ctx: CanvasRenderingContext2D,
   frame: SourceImage,
@@ -283,7 +283,7 @@ export class MeetingRecorder {
   /**
    * The compositor is clocked from a Web Worker rather than
    * requestAnimationFrame. Chrome suspends rAF entirely while a tab is in the
-   * background, which froze the recording the moment someone switched tabs —
+   * background, which froze the recording the moment someone switched tabs -
    * exactly when a screen recording is most likely to matter. Worker timers
    * keep running, so frames are still composited and pushed while hidden.
    */
@@ -351,7 +351,7 @@ export class MeetingRecorder {
       videoTracks = [directTrack]
     } else {
       // A frame rate of 0 means "capture only when asked", so every tick of the
-      // compositor produces exactly one frame — including while hidden, where
+      // compositor produces exactly one frame - including while hidden, where
       // automatic capture would otherwise stall along with the tab.
       const canvasStream = this.canvas.captureStream(0)
       const track = canvasStream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack
@@ -488,7 +488,7 @@ export class MeetingRecorder {
     }
 
     let provider = this.providers.get(source.id)
-    // Rebuild when the underlying track changes — a camera swap, or a screen
+    // Rebuild when the underlying track changes - a camera swap, or a screen
     // share that stopped and started again.
     if (provider && provider.track !== track) {
       provider.close()
@@ -757,7 +757,7 @@ export class MeetingRecorder {
     ctx.fillStyle = gradient
     ctx.fillRect(x, y + h - stripH, w, stripH)
 
-    const label = source.isScreen ? `${source.label} — screen` : source.label
+    const label = source.isScreen ? `${source.label} - screen` : source.label
     ctx.fillStyle = PALETTE.text
     ctx.font = `500 ${opts.labelSize}px system-ui, sans-serif`
     ctx.textBaseline = 'middle'

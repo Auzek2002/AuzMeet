@@ -25,8 +25,8 @@ interface TopBarProps {
 
 const LAYOUTS: { mode: LayoutMode; label: string; icon: React.ReactNode }[] = [
   { mode: 'auto', label: 'Automatic', icon: <LayoutGrid size={14} /> },
-  { mode: 'grid', label: 'Grid — everyone the same size', icon: <Grid3x3 size={14} /> },
-  { mode: 'spotlight', label: 'Spotlight — active speaker', icon: <Square size={14} /> },
+  { mode: 'grid', label: 'Grid: everyone the same size', icon: <Grid3x3 size={14} /> },
+  { mode: 'spotlight', label: 'Spotlight: active speaker', icon: <Square size={14} /> },
 ]
 
 export function TopBar({
@@ -93,7 +93,7 @@ export function TopBar({
 
       <div className="flex-1" />
 
-      {/* Recording banner — visible to everyone in the room */}
+      {/* Recording banner - visible to everyone in the room */}
       {recordingBy.length > 0 && (
         <div className="flex items-center gap-2 bg-red-600/15 border border-red-500/30 rounded-full pl-2.5 pr-1.5 py-1">
           <span className="flex items-center gap-1.5 text-red-300 text-[11px] font-semibold">
@@ -131,7 +131,7 @@ export function TopBar({
 
       {isLocked && (
         <span
-          title="The meeting is locked — nobody new can join"
+          title="The meeting is locked. Nobody new can join"
           className="hidden sm:flex items-center gap-1 text-amber-400 text-[11px] font-medium bg-amber-400/10 border border-amber-400/25 rounded-full px-2 py-1"
         >
           <Lock size={10} />

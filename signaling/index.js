@@ -2,8 +2,8 @@
  * Socket.IO signaling for AuzMeet.
  *
  * Kept free of any Next.js coupling so the exact same logic can run two ways:
- *   - server.js          — Next.js + signaling in one process (local dev)
- *   - signaling-server.js — signaling only (deployed on its own)
+ *   - server.js          - Next.js + signaling in one process (local dev)
+ *   - signaling-server.js - signaling only (deployed on its own)
  *
  * This must run as ONE long-lived process. Room membership lives in the Maps
  * below, and WebSockets are held open for the length of a call, so it cannot

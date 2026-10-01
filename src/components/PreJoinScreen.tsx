@@ -85,7 +85,7 @@ export function PreJoinScreen({ roomId, onJoin }: PreJoinScreenProps) {
         attach(stream)
       } catch (err) {
         console.warn('[PreJoin] getUserMedia failed:', err)
-        // Fall back to audio only — a mic-only participant is still useful.
+        // Fall back to audio only - a mic-only participant is still useful.
         try {
           const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true })
           if (!active) {
@@ -94,7 +94,7 @@ export function PreJoinScreen({ roomId, onJoin }: PreJoinScreenProps) {
           }
           attach(audioOnly)
           setIsVideoEnabled(false)
-          setMediaError('No camera found — you will join with audio only.')
+          setMediaError('No camera found. You will join with audio only.')
         } catch {
           if (active) {
             setMediaError('Camera and microphone are unavailable. You can still join to watch and chat.')
@@ -373,7 +373,7 @@ export function PreJoinScreen({ roomId, onJoin }: PreJoinScreenProps) {
             className="w-full bg-transparent border border-line-strong focus:border-accent rounded-lg px-4 py-3 text-white placeholder-muted outline-none transition-colors"
           />
 
-          {/* Joining is held back until camera/mic acquisition settles —
+          {/* Joining is held back until camera/mic acquisition settles -
               clicking through early would enter the call with no media at all. */}
           <button
             onClick={handleJoin}

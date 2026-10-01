@@ -19,8 +19,8 @@ interface MeetingStageProps {
 
 /**
  * Picks the column count that gives the largest tiles closest to 16:9 for the
- * space actually available. Fixed breakpoints leave holes — three people in a
- * two-column grid wastes a whole quadrant — so this measures instead.
+ * space actually available. Fixed breakpoints leave holes - three people in a
+ * two-column grid wastes a whole quadrant - so this measures instead.
  */
 function bestColumns(count: number, width: number, height: number): number {
   if (count <= 1) return 1

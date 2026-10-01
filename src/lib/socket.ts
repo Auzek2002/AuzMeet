@@ -6,7 +6,7 @@ import { io, ManagerOptions, Socket, SocketOptions } from 'socket.io-client'
  * Empty means "same origin", which is right when the app and the signaling
  * server run in one process (`npm run dev`, or a single container).
  *
- * Set NEXT_PUBLIC_SIGNALING_URL when they are deployed separately — for
+ * Set NEXT_PUBLIC_SIGNALING_URL when they are deployed separately - for
  * example the frontend on Vercel and the signaling server on Render. Vercel
  * cannot host the signaling server itself: it needs a long-lived process
  * holding WebSockets, which serverless functions do not provide.

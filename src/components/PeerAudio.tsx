@@ -48,7 +48,7 @@ function AudioOut({ stream, sinkId, volume }: AudioElementProps) {
 /**
  * Audio is played here, once per participant, instead of inside the video tiles.
  * Tiles unmount as people page through the grid or a share takes over the
- * stage — this keeps everyone audible regardless of what is on screen.
+ * stage - this keeps everyone audible regardless of what is on screen.
  */
 export function PeerAudio({ peers, sinkId, volume = 1 }: PeerAudioProps) {
   return (
